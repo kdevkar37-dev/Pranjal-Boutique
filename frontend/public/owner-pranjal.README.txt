@@ -1,0 +1,7 @@
+Place your uploaded owner image here with this exact name:
+owner-pranjal.png
+
+Expected final path:
+frontend/public/owner-pranjal.png
+
+The homepage already references /owner-pranjal.png with top-down animation.

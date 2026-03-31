@@ -1,0 +1,14 @@
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.vscode/
+frontend/node_modules/
+frontend/dist/
+frontend/.env*.local
+.env
+.env.local
+.env.*.local
+*.log
+node_modules/
+.DS_Store
