@@ -7,6 +7,7 @@ const links = [
   { to: "/gallery", label: "Gallery" },
   { to: "/classes", label: "Classes" },
   { to: "/contact", label: "Contact" },
+  { to: "/track-enquiry", label: "Track Enquiry" },
 ];
 
 export default function Header() {
@@ -31,12 +32,24 @@ export default function Header() {
     navigate("/", { replace: true });
   }
 
+  function handleBrandClick() {
+    // Navigate to admin dashboard if user is admin, otherwise go to home
+    if (user?.role === "ROLE_ADMIN") {
+      navigate("/admin");
+    } else {
+      navigate("/");
+    }
+  }
+
   return (
     <header className="fixed top-0 z-50 w-full border-b border-[#3a3a3a] bg-[#0a0a0a]/95 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-8">
-        <NavLink to="/" className="text-xl font-bold tracking-[0.15em] text-[#d4af37]">
+        <button
+          onClick={handleBrandClick}
+          className="text-xl font-bold tracking-[0.15em] text-[#d4af37] transition hover:text-[#e8c458] cursor-pointer bg-none border-none p-0"
+        >
           PRANJAL'S
-        </NavLink>
+        </button>
 
         <div className="hidden items-center gap-8 text-sm font-medium text-gray-300 md:flex">
           {links.map((link) => (
@@ -54,7 +67,10 @@ export default function Header() {
 
         <div className="flex items-center gap-3 md:gap-4">
           {user && (
-            <div className="hidden items-center gap-2 rounded-full border border-[#3a3a3a] bg-[#111111] px-3 py-1.5 md:flex">
+            <button
+              onClick={() => user?.role === "ROLE_ADMIN" && navigate("/admin")}
+              className="hidden items-center gap-2 rounded-full border border-[#3a3a3a] bg-[#111111] px-3 py-1.5 md:flex transition hover:border-[#d4af37] hover:bg-[#1a1a1a] cursor-pointer"
+            >
               {user?.profilePic ? (
                 <img
                   src={user.profilePic}
@@ -69,7 +85,7 @@ export default function Header() {
               <span className="max-w-[100px] truncate text-xs font-medium text-gray-300">
                 {user?.name}
               </span>
-            </div>
+            </button>
           )}
 
           {user ? (

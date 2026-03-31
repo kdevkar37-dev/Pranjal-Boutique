@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import ClassesPage from "./pages/ClassesPage";
 import ContactPage from "./pages/ContactPage";
+import EnquiryTrackingPage from "./pages/EnquiryTrackingPage";
 import GalleryPage from "./pages/GalleryPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/service/:category" element={<ServiceDetailPage />} />
             <Route path="/classes" element={<ClassesPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/track-enquiry" element={<EnquiryTrackingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/oauth2/success" element={<OAuth2SuccessPage />} />
             <Route

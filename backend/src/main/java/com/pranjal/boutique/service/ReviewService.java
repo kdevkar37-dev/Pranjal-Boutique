@@ -55,4 +55,11 @@ public class ReviewService {
 
         return new ReviewAnalyticsResponse(totalReviews, averageRating, distribution);
     }
+
+    public void delete(String id) {
+        if (!reviewRepository.existsById(id)) {
+            throw new RuntimeException("Review not found");
+        }
+        reviewRepository.deleteById(id);
+    }
 }

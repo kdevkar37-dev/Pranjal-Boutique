@@ -16,6 +16,8 @@ public class Inquiry {
     private String message;
     private InquiryStatus status;
     private Instant createdAt;
+    private String adminResponse;
+    private Instant respondedAt;
 
     public String getId() {
         return id;
@@ -71,5 +73,21 @@ public class Inquiry {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getAdminResponse() {
+        return adminResponse;
+    }
+
+    public void setAdminResponse(String adminResponse) {
+        this.adminResponse = adminResponse;
+    }
+
+    public Instant getRespondedAt() {
+        return respondedAt;
+    }
+
+    public void setRespondedAt(Instant respondedAt) {
+        this.respondedAt = respondedAt;
     }
 }

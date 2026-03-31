@@ -1,12 +1,15 @@
 package com.pranjal.boutique.controller;
 
+import com.pranjal.boutique.dto.InquiryResponseRequest;
 import com.pranjal.boutique.dto.InquiryStatusUpdateRequest;
 import com.pranjal.boutique.dto.ServiceRequest;
 import com.pranjal.boutique.model.BoutiqueService;
 import com.pranjal.boutique.model.Inquiry;
+import com.pranjal.boutique.model.Review;
 import com.pranjal.boutique.service.BoutiqueServiceManager;
 import com.pranjal.boutique.service.ImageService;
 import com.pranjal.boutique.service.InquiryService;
+import com.pranjal.boutique.service.ReviewService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,11 +34,14 @@ public class AdminController {
 
     private final BoutiqueServiceManager boutiqueServiceManager;
     private final InquiryService inquiryService;
+    private final ReviewService reviewService;
     private final ImageService imageService;
 
-    public AdminController(BoutiqueServiceManager boutiqueServiceManager, InquiryService inquiryService, ImageService imageService) {
+    public AdminController(BoutiqueServiceManager boutiqueServiceManager, InquiryService inquiryService, 
+                          ReviewService reviewService, ImageService imageService) {
         this.boutiqueServiceManager = boutiqueServiceManager;
         this.inquiryService = inquiryService;
+        this.reviewService = reviewService;
         this.imageService = imageService;
     }
 
@@ -63,6 +69,27 @@ public class AdminController {
     public Inquiry updateInquiryStatus(@PathVariable String id,
                                        @Valid @RequestBody InquiryStatusUpdateRequest request) {
         return inquiryService.updateStatus(id, request.status());
+    }
+
+    @PutMapping("/inquiries/{id}/respond")
+    public Inquiry respondToInquiry(@PathVariable String id,
+                                    @Valid @RequestBody InquiryResponseRequest request) {
+        return inquiryService.respondToInquiry(id, request.getAdminResponse());
+    }
+
+    @GetMapping("/reviews")
+    public List<Review> getReviews() {
+        return reviewService.getAll();
+    }
+
+    @DeleteMapping("/reviews/{id}")
+    public ResponseEntity<Map<String, String>> deleteReview(@PathVariable String id) {
+        try {
+            reviewService.delete(id);
+            return ResponseEntity.ok(Map.of("message", "Review deleted successfully"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

@@ -49,3 +49,17 @@ export async function updateInquiryStatus(id, status) {
   const { data } = await api.put(`/admin/inquiries/${id}/status`, { status });
   return data;
 }
+
+export async function respondToInquiry(id, adminResponse) {
+  const { data } = await api.put(`/admin/inquiries/${id}/respond`, { adminResponse });
+  return data;
+}
+
+export async function getAdminReviews() {
+  const { data } = await api.get("/admin/reviews");
+  return data;
+}
+
+export async function deleteReview(id) {
+  await api.delete(`/admin/reviews/${id}`);
+}

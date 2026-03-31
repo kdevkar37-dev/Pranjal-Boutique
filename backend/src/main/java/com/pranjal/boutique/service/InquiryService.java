@@ -40,4 +40,13 @@ public class InquiryService {
         inquiry.setStatus(status);
         return inquiryRepository.save(inquiry);
     }
+
+    public Inquiry respondToInquiry(String id, String adminResponse) {
+        Inquiry inquiry = inquiryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Inquiry not found"));
+        inquiry.setAdminResponse(adminResponse);
+        inquiry.setRespondedAt(Instant.now());
+        inquiry.setStatus(InquiryStatus.CONTACTED);
+        return inquiryRepository.save(inquiry);
+    }
 }
