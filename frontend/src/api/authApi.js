@@ -14,3 +14,13 @@ export async function getCurrentUser() {
   const { data } = await api.get("/auth/me");
   return data;
 }
+
+export async function logout() {
+  try {
+    await api.post("/auth/logout");
+    console.log("Logout successful");
+  } catch (error) {
+    console.error("Logout error:", error);
+    // Logout is client-side, so we don't throw errors even if request fails
+  }
+}

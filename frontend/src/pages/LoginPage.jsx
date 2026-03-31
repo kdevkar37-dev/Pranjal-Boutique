@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { login, register } from "../api/authApi";
 import { useAppContext } from "../hooks/useAppContext";
@@ -11,6 +11,11 @@ export default function LoginPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [status, setStatus] = useState("");
 
+  // Reset form when mode changes
+  useEffect(() => {
+    setForm({ name: "", email: "", password: "" });
+  }, [mode]);
+
   async function handleSubmit(event) {
     event.preventDefault();
     setStatus("Please wait...");
@@ -21,10 +26,12 @@ export default function LoginPage() {
           ? await register({ name: form.name, email: form.email, password: form.password })
           : await login({ email: form.email, password: form.password });
       setAuth(payload);
+      setForm({ name: "", email: "", password: "" }); // Clear form after successful login
       setStatus("Authenticated successfully.");
       navigate(payload.role === "ROLE_ADMIN" ? "/admin" : "/");
     } catch (err) {
       setStatus(err.response?.data?.error || "Authentication failed");
+      // Keep form data for retry
     }
   }
 

@@ -3,5 +3,8 @@ package com.pranjal.boutique.model;
 public enum ServiceCategory {
     AARI,
     MEHENDI,
-    EMBROIDERY
+    EMBROIDERY,
+    FABRIC_PAINTING,
+    FLOWER_JEWELLERY,
+    CUSTOM_DESIGN
 }

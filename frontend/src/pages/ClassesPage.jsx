@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
 
 const classes = [
@@ -16,12 +17,21 @@ const classes = [
 ];
 
 export default function ClassesPage() {
+  const navigate = useNavigate();
   return (
     <PageTransition>
       <section className="space-y-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">Classes</p>
-          <h2 className="font-heading text-4xl">Boutique Training Programs</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">Classes</p>
+            <h2 className="font-heading text-4xl">Boutique Training Programs</h2>
+          </div>
+          <button
+            onClick={() => navigate("/")}
+            className="rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37] hover:text-black"
+          >
+            ← Back to Home
+          </button>
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">

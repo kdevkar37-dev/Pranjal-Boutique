@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import PageTransition from "../components/PageTransition";
 import {
-  createService,
-  deleteService,
   getInquiries,
   getReviewAnalytics,
   getReviews,
   getServices,
-  updateService,
   updateInquiryStatus,
 } from "../api/serviceApi";
 
@@ -16,7 +13,19 @@ const initialService = {
   category: "AARI",
   description: "",
   imageUrl: "",
+  imageFile: null,
 };
+
+const categories = [
+  { key: "AARI", label: "Aari Work" },
+  { key: "EMBROIDERY", label: "Embroidery" },
+  { key: "MEHENDI", label: "Mehendi Art" },
+  { key: "FABRIC_PAINTING", label: "Fabric Painting" },
+  { key: "FLOWER_JEWELLERY", label: "Flower Jewellery" },
+  { key: "CUSTOM_DESIGN", label: "Custom Design" },
+];
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 export default function AdminDashboardPage() {
   const [serviceForm, setServiceForm] = useState(initialService);
@@ -26,7 +35,11 @@ export default function AdminDashboardPage() {
   const [reviewAnalytics, setReviewAnalytics] = useState(null);
   const [imageDrafts, setImageDrafts] = useState({});
   const [status, setStatus] = useState("");
-
+  const [selectedCategory, setSelectedCategory] = useState("AARI");
+  const [editingService, setEditingService] = useState(null);
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedInquiryStatus, setSelectedInquiryStatus] = useState("ALL");
   async function refresh() {
     const [serviceData, inquiryData, reviewData, reviewAnalyticsData] = await Promise.all([
       getServices(),
@@ -54,22 +67,91 @@ export default function AdminDashboardPage() {
     event.preventDefault();
     setStatus("Uploading service...");
     try {
-      await createService(serviceForm);
-      setServiceForm(initialService);
+      const token = localStorage.getItem("token");
+      let imageUrl = serviceForm.imageUrl;
+
+      // Upload image if file selected
+      if (serviceForm.imageFile) {
+        const imageFormData = new FormData();
+        imageFormData.append("file", serviceForm.imageFile);
+
+        const uploadRes = await fetch(`${API_URL}/api/admin/images/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: imageFormData,
+        });
+
+        if (!uploadRes.ok) throw new Error("Image upload failed");
+        const uploadData = await uploadRes.json();
+        imageUrl = uploadData.imageUrl;
+      }
+
+      // Create or update service
+      const serviceUrl = editingService
+        ? `${API_URL}/api/admin/services/${editingService.id}`
+        : `${API_URL}/api/admin/services`;
+
+      const method = editingService ? "PUT" : "POST";
+      const serviceRes = await fetch(serviceUrl, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: serviceForm.title,
+          category: selectedCategory,
+          description: serviceForm.description,
+          imageUrl: imageUrl,
+        }),
+      });
+
+      if (!serviceRes.ok) throw new Error("Service save failed");
+
+      // Reload and reset
       await refresh();
-      setStatus("Service created");
+      setServiceForm(initialService);
+      setEditingService(null);
+      setShowServiceForm(false);
+      setPreviewImage(null);
+      setStatus(editingService ? "Service updated!" : "Service created!");
     } catch (err) {
-      setStatus(err.response?.data?.error || "Unable to create service");
+      setStatus(`Error: ${err.message}`);
     }
   }
 
+  function handleEditService(service) {
+    setEditingService(service);
+    setServiceForm({
+      title: service.title,
+      category: service.category,
+      description: service.description,
+      imageUrl: service.imageUrl,
+    });
+    setPreviewImage(service.imageUrl);
+    setShowServiceForm(true);
+  }
+
+  function handleAddNew() {
+    setEditingService(null);
+    setServiceForm({ ...initialService, category: selectedCategory });
+    setPreviewImage(null);
+    setShowServiceForm(true);
+  }
+
   async function handleDeleteService(id) {
+    if (!window.confirm("Delete this service?")) return;
     try {
-      await deleteService(id);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/admin/services/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Delete failed");
       await refresh();
       setStatus("Service deleted");
-    } catch {
-      setStatus("Unable to delete service");
+    } catch (err) {
+      setStatus(`Error: ${err.message}`);
     }
   }
 
@@ -112,115 +194,387 @@ export default function AdminDashboardPage() {
           <h2 className="font-heading text-4xl">Dashboard</h2>
         </div>
 
-        <form
-          onSubmit={handleCreateService}
-          className="grid gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5 md:grid-cols-2"
-        >
-          <input
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
-            placeholder="Title"
-            value={serviceForm.title}
-            onChange={(e) => setServiceForm({ ...serviceForm, title: e.target.value })}
-            required
-          />
-          <select
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
-            value={serviceForm.category}
-            onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value })}
-          >
-            <option value="AARI">Aari</option>
-            <option value="MEHENDI">Mehendi</option>
-            <option value="EMBROIDERY">Embroidery</option>
-          </select>
-          <input
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 md:col-span-2"
-            placeholder="Image URL (Cloudinary/S3)"
-            value={serviceForm.imageUrl}
-            onChange={(e) => setServiceForm({ ...serviceForm, imageUrl: e.target.value })}
-            required
-          />
+        <form onSubmit={handleCreateService} className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+              placeholder="Title"
+              value={serviceForm.title}
+              onChange={(e) => setServiceForm({ ...serviceForm, title: e.target.value })}
+              required
+            />
+            <select
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setServiceForm({ ...serviceForm, category: e.target.value });
+              }}
+            >
+              {categories.map((cat) => (
+                <option key={cat.key} value={cat.key}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <textarea
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 md:col-span-2"
+            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
             placeholder="Description"
             value={serviceForm.description}
             onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+            rows="3"
             required
           />
-          <button
-            type="submit"
-            className="w-fit rounded-full bg-[color:var(--accent)] px-5 py-2 font-semibold text-[color:var(--accent-contrast)]"
-          >
-            Upload Work
-          </button>
+          <div>
+            <label className="block text-sm font-semibold mb-2">Image</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  setServiceForm({ ...serviceForm, imageFile: file });
+                  const reader = new FileReader();
+                  reader.onloadend = () => setPreviewImage(reader.result);
+                  reader.readAsDataURL(file);
+                }
+              }}
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 w-full"
+            />
+            {previewImage && (
+              <img src={previewImage} alt="Preview" className="mt-3 max-h-40 rounded-lg" />
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="flex-1 rounded-full bg-[color:var(--accent)] px-5 py-2 font-semibold text-[color:var(--accent-contrast)]"
+            >
+              {editingService ? "Update Service" : "Create Service"}
+            </button>
+            {editingService && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingService(null);
+                  setServiceForm(initialService);
+                  setPreviewImage(null);
+                }}
+                className="rounded-full border border-[#d4af37] px-5 py-2 font-semibold text-[#d4af37]"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
 
         <section>
-          <h3 className="font-heading text-3xl">Manage Gallery</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => (
-              <article
-                key={service.id}
-                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+          <div className="mb-6">
+            <h3 className="font-heading text-3xl mb-4">Manage Services</h3>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {categories.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setSelectedCategory(cat.key)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    selectedCategory === cat.key
+                      ? "border-2 border-[#d4af37] bg-[#d4af37] text-black"
+                      : "border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+            {!showServiceForm && (
+              <button
+                onClick={handleAddNew}
+                className="rounded-full bg-[#d4af37] px-6 py-2 font-semibold text-black hover:opacity-90"
               >
-                <img src={service.imageUrl} alt={service.title} className="h-32 w-full rounded object-cover" />
-                <h4 className="mt-2 font-semibold">{service.title}</h4>
-                <input
-                  className="mt-2 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
-                  placeholder="New image URL"
-                  value={imageDrafts[service.id] || ""}
-                  onChange={(e) =>
-                    setImageDrafts((prev) => ({ ...prev, [service.id]: e.target.value }))
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => handleImageUpdate(service)}
-                  className="mt-2 rounded-full border border-[#d4af37] px-3 py-1 text-sm text-[#d4af37]"
-                >
-                  Update Image
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteService(service.id)}
-                  className="mt-2 rounded-full bg-red-600 px-3 py-1 text-sm text-white"
-                >
-                  Delete
-                </button>
-              </article>
-            ))}
+                + Add New Service
+              </button>
+            )}
           </div>
+
+          {showServiceForm && (
+            <form onSubmit={handleCreateService} className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6 mb-8">
+              <div className="grid gap-3 md:grid-cols-2">
+                <input
+                  className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+                  placeholder="Title"
+                  value={serviceForm.title}
+                  onChange={(e) => setServiceForm({ ...serviceForm, title: e.target.value })}
+                  required
+                />
+                <select
+                  className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setServiceForm({ ...serviceForm, category: e.target.value });
+                  }}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat.key} value={cat.key}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+                placeholder="Description"
+                value={serviceForm.description}
+                onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+                rows="3"
+                required
+              />
+              <div>
+                <label className="block text-sm font-semibold mb-2">Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setServiceForm({ ...serviceForm, imageFile: file });
+                      const reader = new FileReader();
+                      reader.onloadend = () => setPreviewImage(reader.result);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 w-full"
+                />
+                {previewImage && (
+                  <img src={previewImage} alt="Preview" className="mt-3 max-h-40 rounded-lg" />
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 rounded-full bg-[color:var(--accent)] px-5 py-2 font-semibold text-[color:var(--accent-contrast)]"
+                >
+                  {editingService ? "Update Service" : "Create Service"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingService(null);
+                    setServiceForm(initialService);
+                    setShowServiceForm(false);
+                    setPreviewImage(null);
+                  }}
+                  className="rounded-full border border-[#d4af37] px-5 py-2 font-semibold text-[#d4af37]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {services
+              .filter((s) => s.category === selectedCategory)
+              .map((service) => (
+                <article
+                  key={service.id}
+                  className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 overflow-hidden"
+                >
+                  <img
+                    src={service.imageUrl}
+                    alt={service.title}
+                    className="h-40 w-full rounded object-cover mb-3"
+                  />
+                  <h4 className="font-semibold mb-2">{service.title}</h4>
+                  <p className="text-sm text-[color:var(--text-secondary)] mb-3 line-clamp-2">
+                    {service.description}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditService(service)}
+                      className="flex-1 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteService(service.id)}
+                      className="flex-1 rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
+
+          {services.filter((s) => s.category === selectedCategory).length === 0 && !showServiceForm && (
+            <p className="text-center text-[color:var(--text-secondary)] mt-8">
+              No services for this category yet.
+            </p>
+          )}
         </section>
 
-        <section>
-          <h3 className="font-heading text-3xl">Orders / Class Inquiries</h3>
-          <div className="mt-3 space-y-3">
-            {inquiries.map((inquiry) => (
-              <article
-                key={inquiry.id}
-                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4"
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">
+                Inquiries
+              </p>
+              <h3 className="font-heading text-3xl">Customer Inquiries & Orders</h3>
+            </div>
+          </div>
+
+          {/* Stats Overview */}
+          <div className="grid gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-[#d4af37]/30 bg-gradient-to-br from-[#d4af37]/10 to-[#d4af37]/5 p-4">
+              <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
+                Total Inquiries
+              </p>
+              <p className="mt-2 text-3xl font-bold text-[#d4af37]">{inquiries.length}</p>
+            </div>
+            <div className="rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 p-4">
+              <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
+                Pending
+              </p>
+              <p className="mt-2 text-3xl font-bold text-yellow-400">
+                {inquiries.filter((i) => i.status === "PENDING").length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4">
+              <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
+                Contacted
+              </p>
+              <p className="mt-2 text-3xl font-bold text-blue-400">
+                {inquiries.filter((i) => i.status === "CONTACTED").length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-green-500/5 p-4">
+              <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
+                Closed
+              </p>
+              <p className="mt-2 text-3xl font-bold text-green-400">
+                {inquiries.filter((i) => i.status === "CLOSED").length}
+              </p>
+            </div>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex flex-wrap gap-2">
+            {["ALL", "PENDING", "CONTACTED", "CLOSED"].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSelectedInquiryStatus(filter)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  selectedInquiryStatus === filter
+                    ? "border-2 border-[#d4af37] bg-[#d4af37] text-black"
+                    : "border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black"
+                }`}
               >
-                <p className="font-semibold">{inquiry.customerName} ({inquiry.phone})</p>
-                <p className="text-sm text-[color:var(--text-secondary)]">{inquiry.serviceType}</p>
-                <p className="my-2 text-sm">{inquiry.message}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs">Status: {inquiry.status}</span>
-                  <button
-                    type="button"
-                    className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs"
-                    onClick={() => handleStatus(inquiry.id, "CONTACTED")}
-                  >
-                    Mark Contacted
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-full border border-[color:var(--border)] px-3 py-1 text-xs"
-                    onClick={() => handleStatus(inquiry.id, "CLOSED")}
-                  >
-                    Mark Closed
-                  </button>
-                </div>
-              </article>
+                {filter}
+              </button>
             ))}
+          </div>
+
+          {/* Inquiries Grid */}
+          <div className="space-y-4">
+            {inquiries.length === 0 ? (
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-12 text-center">
+                <p className="text-[color:var(--text-secondary)]">No inquiries yet.</p>
+              </div>
+            ) : (
+              inquiries
+                .filter((i) => selectedInquiryStatus === "ALL" || i.status === selectedInquiryStatus)
+                .map((inquiry) => {
+                  const statusConfig = {
+                    PENDING: {
+                      color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+                      bgColor: "from-yellow-500/5 to-yellow-500/0",
+                      icon: "⏳",
+                    },
+                    CONTACTED: {
+                      color: "bg-blue-500/20 text-blue-300 border-blue-500/50",
+                      bgColor: "from-blue-500/5 to-blue-500/0",
+                      icon: "📞",
+                    },
+                    CLOSED: {
+                      color: "bg-green-500/20 text-green-300 border-green-500/50",
+                      bgColor: "from-green-500/5 to-green-500/0",
+                      icon: "✓",
+                    },
+                  };
+
+                  const config = statusConfig[inquiry.status] || statusConfig.PENDING;
+
+                  return (
+                    <div
+                      key={inquiry.id}
+                      className={`rounded-2xl border border-[color:var(--border)] bg-gradient-to-br ${config.bgColor} bg-[color:var(--card)] p-6 transition hover:shadow-lg`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-4">
+                          {/* Header */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-xl font-semibold text-[color:var(--text-primary)]">
+                                {inquiry.customerName}
+                              </h4>
+                              <p className="text-sm text-[color:var(--text-secondary)]">
+                                📞 {inquiry.phone}
+                              </p>
+                            </div>
+                            <div className={`rounded-full border ${config.color} px-4 py-2 text-sm font-semibold`}>
+                              {config.icon} {inquiry.status}
+                            </div>
+                          </div>
+
+                          {/* Service Type & Message */}
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-[#d4af37]/20 px-3 py-1 text-xs font-semibold text-[#d4af37]">
+                                {inquiry.serviceType}
+                              </span>
+                            </div>
+                            <div className="rounded-lg bg-[#0a0a0a]/50 p-4">
+                              <p className="text-sm leading-relaxed text-[color:var(--text-secondary)]">
+                                {inquiry.message}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {inquiry.status !== "CONTACTED" && (
+                              <button
+                                onClick={() => handleStatus(inquiry.id, "CONTACTED")}
+                                className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                              >
+                                📞 Mark Contacted
+                              </button>
+                            )}
+                            {inquiry.status !== "CLOSED" && (
+                              <button
+                                onClick={() => handleStatus(inquiry.id, "CLOSED")}
+                                className="rounded-full bg-green-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
+                              >
+                                ✓ Mark Closed
+                              </button>
+                            )}
+                            {inquiry.status === "CLOSED" && (
+                              <button
+                                onClick={() => handleStatus(inquiry.id, "PENDING")}
+                                className="rounded-full bg-[#d4af37]/20 px-6 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37]/30"
+                              >
+                                ↻ Reopen
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
           </div>
         </section>
 

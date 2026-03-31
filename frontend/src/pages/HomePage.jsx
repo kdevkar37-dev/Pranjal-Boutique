@@ -1,11 +1,21 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import PageTransition from "../components/PageTransition";
-import { createReview, getReviewAnalytics, getReviews, getServices } from "../api/serviceApi";
+import { createReview, getReviewAnalytics, getReviews, getServices, createInquiry } from "../api/serviceApi";
 import { useState } from "react";
+
+const serviceCategories = {
+  "Aari Work": "AARI",
+  "Embroidery": "EMBROIDERY",
+  "Mehendi Art": "MEHENDI",
+  "Fabric Painting": "FABRIC_PAINTING",
+  "Flower Jewellery": "FLOWER_JEWELLERY",
+  "Custom Design": "CUSTOM_DESIGN",
+};
 
 const services = [
   {
@@ -71,6 +81,7 @@ const ownerImageUrl = "/owner-pranjal.png";
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [dynamicGallery, setDynamicGallery] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewAnalytics, setReviewAnalytics] = useState(null);
@@ -81,6 +92,23 @@ export default function HomePage() {
     message: "",
     stars: 5,
   });
+  const [enquiryForm, setEnquiryForm] = useState({
+    customerName: "",
+    phone: "",
+    serviceType: "Aari Work",
+    message: "",
+  });
+  const [enquiryStatus, setEnquiryStatus] = useState("");
+
+  const handleServiceClick = (serviceTitle) => {
+    const category = serviceCategories[serviceTitle];
+    if (category) {
+      navigate(`/service/${category}`);
+    } else {
+      // For services without mapping, navigate to gallery
+      navigate("/gallery");
+    }
+  };
 
   useEffect(() => {
     AOS.init({
@@ -172,6 +200,25 @@ export default function HomePage() {
       setReviewStatus(err.response?.data?.error || "Could not post your review.");
     } finally {
       setIsSubmittingReview(false);
+    }
+  }
+
+  async function handleEnquirySubmit(event) {
+    event.preventDefault();
+    setEnquiryStatus("Sending your inquiry...");
+    try {
+      await createInquiry(enquiryForm);
+      setEnquiryForm({
+        customerName: "",
+        phone: "",
+        serviceType: "Aari Work",
+        message: "",
+      });
+      setEnquiryStatus("Thank you! Your inquiry has been sent. We will contact you soon.");
+      // Clear success message after 5 seconds
+      setTimeout(() => setEnquiryStatus(""), 5000);
+    } catch (err) {
+      setEnquiryStatus(err.response?.data?.error || "Could not send inquiry. Please try again.");
     }
   }
 
@@ -277,18 +324,19 @@ export default function HomePage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service, index) => (
-              <div
+              <button
                 key={service.title}
+                onClick={() => handleServiceClick(service.title)}
                 data-aos="fade-up"
                 data-aos-delay={index * 100}
-                className="group rounded-2xl border border-[#3a3a3a] bg-gradient-to-br from-[#252525] to-[#1a1a1a] p-8 transition duration-300 hover:-translate-y-2 hover:border-[#d4af37] hover:shadow-2xl"
+                className="group rounded-2xl border border-[#3a3a3a] bg-gradient-to-br from-[#252525] to-[#1a1a1a] p-8 transition duration-300 hover:-translate-y-2 hover:border-[#d4af37] hover:shadow-2xl cursor-pointer text-left"
               >
                 <div className="mb-4 text-4xl">{service.icon}</div>
                 <h3 className="mb-3 text-xl font-semibold text-[#d4af37]">
                   {service.title}
                 </h3>
                 <p className="text-gray-400">{service.description}</p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -382,11 +430,7 @@ export default function HomePage() {
             <form
               data-aos="fade-left"
               className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert("Thank you for your inquiry! We'll contact you soon.");
-                e.target.reset();
-              }}
+              onSubmit={handleEnquirySubmit}
             >
               <div>
                 <label className="mb-2 block text-xs uppercase tracking-[0.1em] text-[#d4af37]">
@@ -395,6 +439,8 @@ export default function HomePage() {
                 <input
                   type="text"
                   placeholder="Your name"
+                  value={enquiryForm.customerName}
+                  onChange={(e) => setEnquiryForm({ ...enquiryForm, customerName: e.target.value })}
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -402,11 +448,13 @@ export default function HomePage() {
 
               <div>
                 <label className="mb-2 block text-xs uppercase tracking-[0.1em] text-[#d4af37]">
-                  Email
+                  Phone
                 </label>
                 <input
-                  type="email"
-                  placeholder="your@email.com"
+                  type="tel"
+                  placeholder="Your phone number"
+                  value={enquiryForm.phone}
+                  onChange={(e) => setEnquiryForm({ ...enquiryForm, phone: e.target.value })}
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -416,12 +464,17 @@ export default function HomePage() {
                 <label className="mb-2 block text-xs uppercase tracking-[0.1em] text-[#d4af37]">
                   Service Type
                 </label>
-                <select className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none">
+                <select 
+                  value={enquiryForm.serviceType}
+                  onChange={(e) => setEnquiryForm({ ...enquiryForm, serviceType: e.target.value })}
+                  className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
+                >
                   <option>Aari Work</option>
                   <option>Embroidery</option>
                   <option>Fabric Painting</option>
                   <option>Mehendi Art</option>
                   <option>Flower Jewellery</option>
+                  <option>Custom Design</option>
                 </select>
               </div>
 
@@ -432,6 +485,8 @@ export default function HomePage() {
                 <textarea
                   placeholder="Tell us about your design vision..."
                   rows={5}
+                  value={enquiryForm.message}
+                  onChange={(e) => setEnquiryForm({ ...enquiryForm, message: e.target.value })}
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -443,6 +498,11 @@ export default function HomePage() {
               >
                 Send Inquiry
               </button>
+              {enquiryStatus && (
+                <p className={`mt-2 text-sm ${enquiryStatus.includes("Thank you") ? "text-green-400" : "text-red-400"}`}>
+                  {enquiryStatus}
+                </p>
+              )}
             </form>
           </div>
         </div>

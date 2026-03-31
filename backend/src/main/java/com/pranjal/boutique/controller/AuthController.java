@@ -50,4 +50,10 @@ public class AuthController {
 				user.getProfilePic()
 		);
 	}
+
+	@PostMapping("/logout")
+	public void logout() {
+		// Logout is handled client-side by clearing the JWT token
+		// This endpoint is provided for completeness and can be used for server-side cleanup if needed
+	}
 }

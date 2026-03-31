@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
 import { createInquiry } from "../api/serviceApi";
 
@@ -10,6 +11,7 @@ const initialForm = {
 };
 
 export default function ContactPage() {
+  const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState("");
 
@@ -29,6 +31,12 @@ export default function ContactPage() {
     <PageTransition>
       <section className="grid gap-8 md:grid-cols-2">
         <div>
+          <button
+            onClick={() => navigate("/")}
+            className="mb-4 rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37] hover:text-black"
+          >
+            ← Back
+          </button>
           <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">Contact</p>
           <h2 className="font-heading text-4xl">Book Classes or Place Orders</h2>
           <p className="mt-3 text-[color:var(--text-secondary)]">

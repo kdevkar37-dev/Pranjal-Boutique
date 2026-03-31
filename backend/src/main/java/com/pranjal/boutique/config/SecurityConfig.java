@@ -65,6 +65,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.POST, "^/api/services/reviews$"))
                     .permitAll()
+                    .requestMatchers(RegexRequestMatcher.regexMatcher("^/uploads(?:/.*)?$"))
+                    .permitAll()
                     .requestMatchers(RegexRequestMatcher.regexMatcher("^/api/admin(?:/.*)?$"))
                     .hasRole("ADMIN")
                         .anyRequest().authenticated())

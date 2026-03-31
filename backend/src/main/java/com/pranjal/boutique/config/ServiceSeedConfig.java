@@ -31,25 +31,31 @@ public class ServiceSeedConfig {
             embroidery.setDescription("Hand-finished embroidery with premium detailing and modern silhouettes.");
             embroidery.setImageUrl("https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80");
 
-            BoutiqueService fabricPainting = new BoutiqueService();
-            fabricPainting.setTitle("Fabric Painting");
-            fabricPainting.setCategory(ServiceCategory.EMBROIDERY);
-            fabricPainting.setDescription("Custom hand-painted fabrics for festive attire and occasion wear.");
-            fabricPainting.setImageUrl("https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80");
-
             BoutiqueService mehendi = new BoutiqueService();
             mehendi.setTitle("Mehendi Art");
             mehendi.setCategory(ServiceCategory.MEHENDI);
             mehendi.setDescription("Classic to contemporary mehendi patterns for brides and celebrations.");
             mehendi.setImageUrl("https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=1200&q=80");
 
+            BoutiqueService fabricPainting = new BoutiqueService();
+            fabricPainting.setTitle("Fabric Painting");
+            fabricPainting.setCategory(ServiceCategory.FABRIC_PAINTING);
+            fabricPainting.setDescription("Fashion-forward painted motifs curated for contemporary festive edits.");
+            fabricPainting.setImageUrl("https://images.unsplash.com/photo-1604480133435-25b86862d276?auto=format&fit=crop&w=1200&q=80");
+
             BoutiqueService flowerJewellery = new BoutiqueService();
             flowerJewellery.setTitle("Flower Jewellery");
-            flowerJewellery.setCategory(ServiceCategory.EMBROIDERY);
-            flowerJewellery.setDescription("Elegant floral jewellery sets for haldi, mehendi, and bridal shoots.");
-            flowerJewellery.setImageUrl("https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=1200&q=80");
+            flowerJewellery.setCategory(ServiceCategory.FLOWER_JEWELLERY);
+            flowerJewellery.setDescription("Fresh floral jewelry styling designed for haldi and mehendi ceremonies.");
+            flowerJewellery.setImageUrl("https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=1200&q=80");
 
-            boutiqueServiceRepository.saveAll(List.of(aari, embroidery, fabricPainting, mehendi, flowerJewellery));
+            BoutiqueService customDesign = new BoutiqueService();
+            customDesign.setTitle("Custom Design");
+            customDesign.setCategory(ServiceCategory.CUSTOM_DESIGN);
+            customDesign.setDescription("Personalized bridal customization and design consultation services.");
+            customDesign.setImageUrl("https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1200&q=80");
+
+            boutiqueServiceRepository.saveAll(List.of(aari, embroidery, mehendi, fabricPainting, flowerJewellery, customDesign));
         };
     }
 }

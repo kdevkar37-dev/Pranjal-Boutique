@@ -9,6 +9,7 @@ import GalleryPage from "./pages/GalleryPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import OAuth2SuccessPage from "./pages/OAuth2SuccessPage";
+import ServiceDetailPage from "./pages/ServiceDetailPage";
 
 export default function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ export default function App() {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<HomePage />} />
             <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/service/:category" element={<ServiceDetailPage />} />
             <Route path="/classes" element={<ClassesPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<LoginPage />} />
