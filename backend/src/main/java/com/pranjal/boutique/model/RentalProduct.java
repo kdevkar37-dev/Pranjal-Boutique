@@ -3,15 +3,19 @@ package com.pranjal.boutique.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection = "services")
-public class BoutiqueService {
+import java.time.Instant;
+
+@Document(collection = "rental_products")
+public class RentalProduct {
 
     @Id
     private String id;
-    private String title;
+    private String name;
+    private String section;
     private String category;
     private String description;
     private String imageUrl;
+    private Instant createdAt;
 
     public String getId() {
         return id;
@@ -21,12 +25,20 @@ public class BoutiqueService {
         this.id = id;
     }
 
-    public String getTitle() {
-        return title;
+    public String getName() {
+        return name;
     }
 
-    public void setTitle(String title) {
-        this.title = title;
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getSection() {
+        return section;
+    }
+
+    public void setSection(String section) {
+        this.section = section;
     }
 
     public String getCategory() {
@@ -51,5 +63,13 @@ public class BoutiqueService {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

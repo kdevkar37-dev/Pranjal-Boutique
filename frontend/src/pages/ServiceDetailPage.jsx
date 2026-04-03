@@ -1,46 +1,69 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import { getImageUrl } from "../utils/imageUrl";
 import { getServices } from "../api/serviceApi";
+
+function normalizeCategory(value) {
+  return decodeURIComponent((value || "").trim())
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
 
 export default function ServiceDetailPage() {
   const { category } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [services, setServices] = useState([]);
   const [currentService, setCurrentService] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fullViewImage, setFullViewImage] = useState(null);
+
+  useEffect(() => {
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setFullViewImage(null);
+      }
+    }
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  const handleBack = () => {
+    const backTarget = location.state?.backTarget;
+
+    if (backTarget === "gallery-page") {
+      navigate("/gallery");
+      return;
+    }
+
+    if (backTarget === "home-gallery") {
+      navigate("/?section=gallery");
+      return;
+    }
+
+    navigate("/gallery");
+  };
 
   useEffect(() => {
     async function load() {
       try {
-        console.log("Loading services for category:", category);
         const data = await getServices();
-        console.log("All services received:", data);
-        
-        if (data && data.length > 0) {
-          // Normalize category for comparison (uppercase)
-          const normalizedCategory = category.toUpperCase();
-          
-          // Filter services by category (case-insensitive match)
-          const filtered = data.filter((s) => {
-            const serviceCategory = (s.category || "").toUpperCase();
-            const isMatch = serviceCategory === normalizedCategory;
-            console.log(`Comparing: "${serviceCategory}" === "${normalizedCategory}" => ${isMatch}`);
-            return isMatch;
-          });
-          
-          console.log("Filtered services:", filtered);
-          
-          // If matches found, use them; otherwise show all
-          const servicesToShow = filtered.length > 0 ? filtered : data;
-          setServices(servicesToShow);
-          setCurrentService(servicesToShow[0]);
-        } else {
-          console.log("No services data received");
-          setServices([]);
-        }
+        const normalizedCategory = normalizeCategory(category);
+        const filtered = (data || []).filter(
+          (service) =>
+            normalizeCategory(service.category) === normalizedCategory,
+        );
+
+        setServices(filtered);
+        setCurrentService(filtered[0] || null);
       } catch (err) {
-        console.error("Error loading services:", err);
+        setServices([]);
+        setCurrentService(null);
       } finally {
         setLoading(false);
       }
@@ -64,12 +87,14 @@ export default function ServiceDetailPage() {
       <PageTransition>
         <div className="space-y-4">
           <button
-            onClick={() => navigate("/gallery")}
+            onClick={handleBack}
             className="rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37]"
           >
-            ← Back to Gallery
+            Back
           </button>
-          <p className="text-[color:var(--text-secondary)]">No services found for category: {category}</p>
+          <p className="text-[color:var(--text-secondary)]">
+            No services found for category: {decodeURIComponent(category || "")}
+          </p>
         </div>
       </PageTransition>
     );
@@ -87,23 +112,34 @@ export default function ServiceDetailPage() {
             <h2 className="font-heading text-4xl">{currentService.title}</h2>
           </div>
           <button
-            onClick={() => navigate("/gallery")}
+            onClick={handleBack}
             className="rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37] hover:text-black"
           >
-            ← Back
+            Back
           </button>
         </div>
 
         {/* Main Image */}
         <div className="space-y-4">
-          <p className="text-[color:var(--text-secondary)]">{currentService.description}</p>
-          <div className="overflow-hidden rounded-2xl border border-[color:var(--border)]">
+          <p className="text-[color:var(--text-secondary)]">
+            {currentService.description}
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              setFullViewImage(getImageUrl(currentService.imageUrl))
+            }
+            className="block w-full overflow-hidden rounded-2xl border border-[color:var(--border)]"
+          >
             <img
-              src={currentService.imageUrl}
+              src={getImageUrl(currentService.imageUrl)}
               alt={currentService.title}
-              className="h-96 w-full object-cover"
+              className="h-96 w-full object-contain bg-black"
             />
-          </div>
+          </button>
+          <p className="text-xs text-[color:var(--text-secondary)]">
+            Tap image to view full size
+          </p>
         </div>
 
         {/* Gallery Grid */}
@@ -122,16 +158,22 @@ export default function ServiceDetailPage() {
                   } bg-[color:var(--card)] hover:shadow-lg`}
                 >
                   <img
-                    src={service.imageUrl}
+                    src={getImageUrl(service.imageUrl)}
                     alt={service.title}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setFullViewImage(getImageUrl(service.imageUrl));
+                    }}
                     className="h-40 w-full object-cover transition duration-500 group-hover:scale-105"
                   />
                   <div className="space-y-2 p-4">
-                    <h4 className={`font-semibold ${
-                      currentService.id === service.id 
-                        ? "text-[#d4af37]" 
-                        : "text-[color:var(--text-primary)]"
-                    }`}>
+                    <h4
+                      className={`font-semibold ${
+                        currentService.id === service.id
+                          ? "text-[#d4af37]"
+                          : "text-[color:var(--text-primary)]"
+                      }`}
+                    >
                       {service.title}
                     </h4>
                     <p className="text-xs text-[color:var(--text-secondary)]">
@@ -144,6 +186,29 @@ export default function ServiceDetailPage() {
           </div>
         )}
       </section>
+
+      {fullViewImage && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setFullViewImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            onClick={() => setFullViewImage(null)}
+            className="absolute right-4 top-4 rounded-full border border-white/40 px-3 py-1 text-sm font-semibold text-white transition hover:bg-white/10"
+          >
+            Close
+          </button>
+          <img
+            src={fullViewImage}
+            alt="Full view service"
+            className="max-h-[92vh] max-w-[96vw] object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </PageTransition>
   );
 }

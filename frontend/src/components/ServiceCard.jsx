@@ -1,41 +1,40 @@
+import { memo, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { getImageUrl } from "../utils/imageUrl";
 
 const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919999999999";
 
-// Category mapping for URL formatting
-const categoryMap = {
-  "AARI": "AARI",
-  "EMBROIDERY": "EMBROIDERY",
-  "MEHENDI": "MEHENDI",
-  "FABRIC_PAINTING": "FABRIC_PAINTING",
-  "FLOWER_JEWELLERY": "FLOWER_JEWELLERY",
-  "CUSTOM_DESIGN": "CUSTOM_DESIGN",
-  // Fallback for any variations
-  "Aari Work": "AARI",
-  "Embroidery": "EMBROIDERY",
-  "Mehendi Art": "MEHENDI",
-  "Fabric Painting": "FABRIC_PAINTING",
-  "Flower Jewellery": "FLOWER_JEWELLERY",
-  "Custom Design": "CUSTOM_DESIGN",
-};
-
-export default function ServiceCard({ service, index = 0, isClickable = true }) {
-  const message = encodeURIComponent(
-    `Hello Pranjal, I saw the ${service.title} on your website and want to ask about classes.`
+function ServiceCard({
+  service,
+  index = 0,
+  isClickable = true,
+  backTarget = "gallery-page",
+}) {
+  const message = useMemo(
+    () =>
+      encodeURIComponent(
+        `Hello Pranjal, I saw the ${service.title} on your website and want to ask about classes.`,
+      ),
+    [service.title],
   );
-  const whatsappLink = `https://wa.me/${whatsappNumber}?text=${message}`;
+  const whatsappLink = useMemo(
+    () => `https://wa.me/${whatsappNumber}?text=${message}`,
+    [message],
+  );
 
-  const handleWhatsAppClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.open(whatsappLink, "_blank");
-  };
+  const handleWhatsAppClick = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(whatsappLink, "_blank");
+    },
+    [whatsappLink],
+  );
 
-  console.log("ServiceCard - service:", service);
-  // Use category map to ensure consistent URL formatting
-  const rawCategory = service.category || service.title;
-  const categoryForUrl = categoryMap[rawCategory] || rawCategory.toUpperCase();
-  console.log("Navigating to:", `/service/${categoryForUrl}`);
+  const categoryForUrl = useMemo(() => {
+    const rawCategory = (service.category || service.title || "").trim();
+    return encodeURIComponent(rawCategory);
+  }, [service.category, service.title]);
 
   const cardContent = (
     <article
@@ -43,8 +42,10 @@ export default function ServiceCard({ service, index = 0, isClickable = true }) 
       style={{ animationDelay: `${index * 0.07}s` }}
     >
       <img
-        src={service.imageUrl}
+        src={getImageUrl(service.imageUrl)}
         alt={service.title}
+        loading="lazy"
+        decoding="async"
         className="h-48 w-full object-cover transition duration-500 group-hover:scale-105"
       />
       <div className="space-y-3 p-4">
@@ -72,8 +73,9 @@ export default function ServiceCard({ service, index = 0, isClickable = true }) 
   }
 
   return (
-    <Link 
+    <Link
       to={`/service/${categoryForUrl}`}
+      state={{ backTarget }}
       className="block no-underline"
       onAuxClick={(e) => {
         // Allow middle-click to open in new tab
@@ -86,3 +88,5 @@ export default function ServiceCard({ service, index = 0, isClickable = true }) 
     </Link>
   );
 }
+
+export default memo(ServiceCard);

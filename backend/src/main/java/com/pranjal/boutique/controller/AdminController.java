@@ -2,14 +2,22 @@ package com.pranjal.boutique.controller;
 
 import com.pranjal.boutique.dto.InquiryResponseRequest;
 import com.pranjal.boutique.dto.InquiryStatusUpdateRequest;
+import com.pranjal.boutique.dto.RentalCategoryCountResponse;
+import com.pranjal.boutique.dto.RentalProductRequest;
+import com.pranjal.boutique.dto.ServiceCategoryCountResponse;
 import com.pranjal.boutique.dto.ServiceRequest;
+import com.pranjal.boutique.dto.SiteSettingsRequest;
 import com.pranjal.boutique.model.BoutiqueService;
 import com.pranjal.boutique.model.Inquiry;
+import com.pranjal.boutique.model.RentalProduct;
 import com.pranjal.boutique.model.Review;
+import com.pranjal.boutique.model.SiteSettings;
 import com.pranjal.boutique.service.BoutiqueServiceManager;
 import com.pranjal.boutique.service.ImageService;
 import com.pranjal.boutique.service.InquiryService;
+import com.pranjal.boutique.service.RentalProductService;
 import com.pranjal.boutique.service.ReviewService;
+import com.pranjal.boutique.service.SiteSettingsService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,13 +44,19 @@ public class AdminController {
     private final InquiryService inquiryService;
     private final ReviewService reviewService;
     private final ImageService imageService;
+    private final SiteSettingsService siteSettingsService;
+    private final RentalProductService rentalProductService;
 
-    public AdminController(BoutiqueServiceManager boutiqueServiceManager, InquiryService inquiryService, 
-                          ReviewService reviewService, ImageService imageService) {
+    public AdminController(BoutiqueServiceManager boutiqueServiceManager, InquiryService inquiryService,
+            ReviewService reviewService, ImageService imageService,
+            SiteSettingsService siteSettingsService,
+            RentalProductService rentalProductService) {
         this.boutiqueServiceManager = boutiqueServiceManager;
         this.inquiryService = inquiryService;
         this.reviewService = reviewService;
         this.imageService = imageService;
+        this.siteSettingsService = siteSettingsService;
+        this.rentalProductService = rentalProductService;
     }
 
     @PostMapping("/services")
@@ -60,6 +74,39 @@ public class AdminController {
         boutiqueServiceManager.delete(id);
     }
 
+    @GetMapping("/services/category-counts")
+    public List<ServiceCategoryCountResponse> getServiceCategoryCounts() {
+        return boutiqueServiceManager.getServiceCategoryCounts();
+    }
+
+    @GetMapping("/rental-products")
+    public List<RentalProduct> getRentalProducts(
+            @RequestParam(required = false) String section,
+            @RequestParam(required = false) String category) {
+        return rentalProductService.getProducts(section, category);
+    }
+
+    @PostMapping("/rental-products")
+    public RentalProduct createRentalProduct(@Valid @RequestBody RentalProductRequest request) {
+        return rentalProductService.create(request);
+    }
+
+    @PutMapping("/rental-products/{id}")
+    public RentalProduct updateRentalProduct(@PathVariable String id,
+            @Valid @RequestBody RentalProductRequest request) {
+        return rentalProductService.update(id, request);
+    }
+
+    @DeleteMapping("/rental-products/{id}")
+    public void deleteRentalProduct(@PathVariable String id) {
+        rentalProductService.delete(id);
+    }
+
+    @GetMapping("/rental-products/category-counts")
+    public List<RentalCategoryCountResponse> getRentalCategoryCounts() {
+        return rentalProductService.getCategoryCounts();
+    }
+
     @GetMapping("/inquiries")
     public List<Inquiry> getInquiries() {
         return inquiryService.getAll();
@@ -67,13 +114,13 @@ public class AdminController {
 
     @PutMapping("/inquiries/{id}/status")
     public Inquiry updateInquiryStatus(@PathVariable String id,
-                                       @Valid @RequestBody InquiryStatusUpdateRequest request) {
+            @Valid @RequestBody InquiryStatusUpdateRequest request) {
         return inquiryService.updateStatus(id, request.status());
     }
 
     @PutMapping("/inquiries/{id}/respond")
     public Inquiry respondToInquiry(@PathVariable String id,
-                                    @Valid @RequestBody InquiryResponseRequest request) {
+            @Valid @RequestBody InquiryResponseRequest request) {
         return inquiryService.respondToInquiry(id, request.getAdminResponse());
     }
 
@@ -92,6 +139,16 @@ public class AdminController {
         }
     }
 
+    @GetMapping("/site-settings")
+    public SiteSettings getSiteSettings() {
+        return siteSettingsService.getSettings();
+    }
+
+    @PutMapping("/site-settings")
+    public SiteSettings updateSiteSettings(@Valid @RequestBody SiteSettingsRequest request) {
+        return siteSettingsService.updateSettings(request);
+    }
+
     /**
      * Upload an image file
      */
@@ -105,12 +162,10 @@ public class AdminController {
             return ResponseEntity.ok(response);
         } catch (IOException e) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", "Failed to upload image: " + e.getMessage())
-            );
+                    Map.of("error", "Failed to upload image: " + e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", e.getMessage())
-            );
+                    Map.of("error", e.getMessage()));
         }
     }
 
@@ -126,8 +181,7 @@ public class AdminController {
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", e.getMessage())
-            );
+                    Map.of("error", e.getMessage()));
         }
     }
 
@@ -149,7 +203,7 @@ public class AdminController {
             if (imageFile != null && !imageFile.isEmpty()) {
                 // Upload new image
                 imageUrl = imageService.uploadImage(imageFile);
-                
+
                 // Delete old image if it exists
                 if (existing.getImageUrl() != null && !existing.getImageUrl().isEmpty()) {
                     try {
@@ -161,9 +215,9 @@ public class AdminController {
             }
 
             // Create service request with image URL
-            ServiceRequest request = new ServiceRequest(title, 
-                    com.pranjal.boutique.model.ServiceCategory.valueOf(category), 
-                    description, 
+            ServiceRequest request = new ServiceRequest(title,
+                    category,
+                    description,
                     imageUrl);
 
             // Update service
@@ -171,12 +225,10 @@ public class AdminController {
             return ResponseEntity.ok(updatedService);
         } catch (IOException e) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", "Failed to process image: " + e.getMessage())
-            );
+                    Map.of("error", "Failed to process image: " + e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(
-                    Map.of("error", e.getMessage())
-            );
+                    Map.of("error", e.getMessage()));
         }
     }
 }

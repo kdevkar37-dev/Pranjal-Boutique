@@ -1,16 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AOS from "aos";
 import "aos/dist/aos.css";
 import PageTransition from "../components/PageTransition";
-import { createReview, getReviewAnalytics, getReviews, getServices, createInquiry } from "../api/serviceApi";
-import { useState } from "react";
+import { getImageUrl } from "../utils/imageUrl";
+import {
+  createReview,
+  getReviewAnalytics,
+  getReviews,
+  getServices,
+  createInquiry,
+  getSiteSettings,
+} from "../api/serviceApi";
 
 const serviceCategories = {
   "Aari Work": "AARI",
-  "Embroidery": "EMBROIDERY",
+  Embroidery: "EMBROIDERY",
   "Mehendi Art": "MEHENDI",
   "Fabric Painting": "FABRIC_PAINTING",
   "Flower Jewellery": "FLOWER_JEWELLERY",
@@ -21,32 +28,38 @@ const services = [
   {
     icon: "✨",
     title: "Aari Work",
-    description: "Hand-finished bridal and couture Aari detailing with elevated threadwork precision.",
+    description:
+      "Hand-finished bridal and couture Aari detailing with elevated threadwork precision.",
   },
   {
     icon: "🧵",
     title: "Embroidery",
-    description: "Luxury embroidery crafted for statement lehengas, blouses, and reception silhouettes.",
+    description:
+      "Luxury embroidery crafted for statement lehengas, blouses, and reception silhouettes.",
   },
   {
     icon: "🎨",
     title: "Fabric Painting",
-    description: "Fashion-forward painted motifs curated for contemporary festive and bridal edits.",
+    description:
+      "Fashion-forward painted motifs curated for contemporary festive and bridal edits.",
   },
   {
     icon: "🎭",
     title: "Mehendi Art",
-    description: "Intricate modern-traditional mehendi for brides, pre-wedding shoots, and celebrations.",
+    description:
+      "Intricate modern-traditional mehendi for brides, pre-wedding shoots, and celebrations.",
   },
   {
     icon: "💐",
     title: "Flower Jewellery",
-    description: "Fresh floral jewelry styling designed for haldi, mehendi, and destination ceremonies.",
+    description:
+      "Fresh floral jewelry styling designed for haldi, mehendi, and destination ceremonies.",
   },
   {
     icon: "👗",
     title: "Custom Design",
-    description: "Personalized bridal customization and design consultation for your dream wedding outfit.",
+    description:
+      "Personalized bridal customization and design consultation for your dream wedding outfit.",
   },
 ];
 
@@ -77,11 +90,87 @@ const galleryImages = [
   },
 ];
 
-const ownerImageUrl = "/owner-pranjal.png";
+const ownerImageUrl = "/owner-photo.png";
+const ownerImageFallbackUrl = "/owner-pranjal.png";
+
+function PhoneIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 text-[#d4af37]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.62 2.62a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6 6l1.46-1.28a2 2 0 0 1 2.11-.45c.85.29 1.72.5 2.62.62A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function LocationIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4 text-[#d4af37]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function buildMapEmbedUrl(googleMapsUrl, location) {
+  const fallbackQuery = encodeURIComponent(
+    location || "Pune, Maharashtra, India",
+  );
+
+  if (!googleMapsUrl) {
+    return `https://www.google.com/maps?q=${fallbackQuery}&output=embed`;
+  }
+
+  try {
+    const parsed = new URL(googleMapsUrl);
+
+    if (parsed.pathname.includes("/maps/embed")) {
+      return googleMapsUrl;
+    }
+
+    const query =
+      parsed.searchParams.get("q") || parsed.searchParams.get("query");
+    if (query) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+    }
+
+    if (parsed.pathname.includes("/place/")) {
+      const placePart = decodeURIComponent(
+        parsed.pathname.split("/place/")[1] || "",
+      )
+        .split("/")[0]
+        .replace(/\+/g, " ");
+      if (placePart) {
+        return `https://www.google.com/maps?q=${encodeURIComponent(placePart)}&output=embed`;
+      }
+    }
+  } catch {
+    // Fallback to location text when URL parsing fails.
+  }
+
+  return `https://www.google.com/maps?q=${fallbackQuery}&output=embed`;
+}
 
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const locationState = useLocation();
   const [dynamicGallery, setDynamicGallery] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewAnalytics, setReviewAnalytics] = useState(null);
@@ -99,16 +188,36 @@ export default function HomePage() {
     message: "",
   });
   const [enquiryStatus, setEnquiryStatus] = useState("");
+  const [siteSettings, setSiteSettings] = useState({
+    contactNumbers: ["+91 98765 43210", "+91 99887 76655"],
+    location: "Pune, Maharashtra, India",
+    googleMapsUrl: "",
+  });
 
   const handleServiceClick = (serviceTitle) => {
     const category = serviceCategories[serviceTitle];
     if (category) {
-      navigate(`/service/${category}`);
+      navigate(`/service/${category}`, {
+        state: { backTarget: "home-gallery" },
+      });
     } else {
       // For services without mapping, navigate to gallery
       navigate("/gallery");
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(locationState.search);
+    const targetSection = params.get("section");
+    if (targetSection) {
+      setTimeout(() => {
+        const element = document.getElementById(targetSection);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 0);
+    }
+  }, [locationState.search]);
 
   useEffect(() => {
     AOS.init({
@@ -134,6 +243,7 @@ export default function HomePage() {
           .map((service) => ({
             src: service.imageUrl,
             title: service.title,
+            category: service.category || "General",
           }));
         setDynamicGallery(mapped);
       } catch {
@@ -153,9 +263,48 @@ export default function HomePage() {
   useEffect(() => {
     let mounted = true;
 
+    async function loadSiteSettings() {
+      try {
+        const data = await getSiteSettings();
+        if (!mounted) {
+          return;
+        }
+
+        setSiteSettings({
+          contactNumbers:
+            data?.contactNumbers?.length > 0
+              ? data.contactNumbers
+              : [data?.contactNumber || "+91 98765 43210"],
+          location: data?.location || "Pune, Maharashtra, India",
+          googleMapsUrl: data?.googleMapsUrl || "",
+        });
+      } catch {
+        if (mounted) {
+          setSiteSettings({
+            contactNumbers: ["+91 98765 43210", "+91 99887 76655"],
+            location: "Pune, Maharashtra, India",
+            googleMapsUrl: "",
+          });
+        }
+      }
+    }
+
+    loadSiteSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
     async function loadReviews() {
       try {
-        const [reviewData, analyticsData] = await Promise.all([getReviews(), getReviewAnalytics()]);
+        const [reviewData, analyticsData] = await Promise.all([
+          getReviews(),
+          getReviewAnalytics(),
+        ]);
         if (!mounted) {
           return;
         }
@@ -176,7 +325,47 @@ export default function HomePage() {
     };
   }, []);
 
-  const displayedGallery = dynamicGallery.length > 0 ? dynamicGallery : galleryImages;
+  const displayedGallery = useMemo(
+    () => (dynamicGallery.length > 0 ? dynamicGallery : galleryImages),
+    [dynamicGallery],
+  );
+  const groupedGalleryEntries = useMemo(() => {
+    const groupedGallery = displayedGallery.reduce((acc, image) => {
+      const category = (image.category || "Featured").trim();
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      if (acc[category].length < 3) {
+        acc[category].push(image);
+      }
+      return acc;
+    }, {});
+    return Object.entries(groupedGallery);
+  }, [displayedGallery]);
+  const fallbackWhatsapp =
+    import.meta.env.VITE_WHATSAPP_NUMBER || "919999999999";
+  const whatsappNumber = useMemo(
+    () =>
+      (siteSettings.contactNumbers?.[0] || "").replace(/\D/g, "") ||
+      fallbackWhatsapp,
+    [siteSettings.contactNumbers, fallbackWhatsapp],
+  );
+  const whatsappLink = useMemo(
+    () => `https://wa.me/${whatsappNumber}`,
+    [whatsappNumber],
+  );
+  const instagramLink = "https://www.instagram.com/pranjalsdesigner/";
+  const mapsLink = useMemo(
+    () =>
+      siteSettings.googleMapsUrl ||
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(siteSettings.location)}`,
+    [siteSettings.googleMapsUrl, siteSettings.location],
+  );
+  const mapsEmbedUrl = useMemo(
+    () =>
+      buildMapEmbedUrl(siteSettings.googleMapsUrl, siteSettings.location),
+    [siteSettings.googleMapsUrl, siteSettings.location],
+  );
 
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId);
@@ -191,13 +380,18 @@ export default function HomePage() {
     setReviewStatus("Posting your review...");
     try {
       await createReview(reviewForm);
-      const [reviewData, analyticsData] = await Promise.all([getReviews(), getReviewAnalytics()]);
+      const [reviewData, analyticsData] = await Promise.all([
+        getReviews(),
+        getReviewAnalytics(),
+      ]);
       setReviews(reviewData);
       setReviewAnalytics(analyticsData);
       setReviewForm({ reviewerName: "", message: "", stars: 5 });
       setReviewStatus("Thank you. Your review is now visible.");
     } catch (err) {
-      setReviewStatus(err.response?.data?.error || "Could not post your review.");
+      setReviewStatus(
+        err.response?.data?.error || "Could not post your review.",
+      );
     } finally {
       setIsSubmittingReview(false);
     }
@@ -214,11 +408,16 @@ export default function HomePage() {
         serviceType: "Aari Work",
         message: "",
       });
-      setEnquiryStatus("Thank you! Your inquiry has been sent. We will contact you soon.");
+      setEnquiryStatus(
+        "Thank you! Your inquiry has been sent. We will contact you soon.",
+      );
       // Clear success message after 5 seconds
       setTimeout(() => setEnquiryStatus(""), 5000);
     } catch (err) {
-      setEnquiryStatus(err.response?.data?.error || "Could not send inquiry. Please try again.");
+      setEnquiryStatus(
+        err.response?.data?.error ||
+          "Could not send inquiry. Please try again.",
+      );
     }
   }
 
@@ -250,11 +449,22 @@ export default function HomePage() {
             transition={{ duration: 1, ease: "easeOut" }}
             className="mb-6 w-full"
           >
-            <img
-              src={ownerImageUrl}
-              alt="Owner of Pranjal's Boutique"
-              className="mx-auto h-80 w-auto object-contain drop-shadow-[0_0_24px_rgba(212,175,55,0.45)]"
-            />
+            <div className="hero-owner-wrap">
+              <div className="hero-owner-ring hero-owner-ring-one" />
+              <div className="hero-owner-ring hero-owner-ring-two" />
+              <img
+                src={ownerImageUrl}
+                alt="Owner of Pranjal's Boutique"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                onError={(event) => {
+                  event.currentTarget.onerror = null;
+                  event.currentTarget.src = ownerImageFallbackUrl;
+                }}
+                className="mx-auto h-80 w-auto object-contain drop-shadow-[0_0_24px_rgba(212,175,55,0.45)]"
+              />
+            </div>
           </motion.div>
 
           <p
@@ -268,7 +478,8 @@ export default function HomePage() {
             data-aos="fade-up"
             data-aos-delay="100"
             style={{
-              background: "linear-gradient(90deg, #f5f5f5 0%, #d4af37 50%, #f5f5f5 100%)",
+              background:
+                "linear-gradient(90deg, #f5f5f5 0%, #d4af37 50%, #f5f5f5 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -305,10 +516,7 @@ export default function HomePage() {
       </section>
 
       {/* SERVICES SECTION */}
-      <section
-        id="services"
-        className="bg-[#1a1a1a] px-4 py-16 md:py-24"
-      >
+      <section id="services" className="bg-[#1a1a1a] px-4 py-16 md:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center" data-aos="fade-up">
             <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#d4af37]">
@@ -318,7 +526,8 @@ export default function HomePage() {
               Crafted for Grand Celebrations
             </h2>
             <p className="text-gray-400">
-              Premium Aari work, embroidery, and designer services for modern brides
+              Premium Aari work, embroidery, and designer services for modern
+              brides
             </p>
           </div>
 
@@ -343,10 +552,7 @@ export default function HomePage() {
       </section>
 
       {/* GALLERY SECTION */}
-      <section
-        id="gallery"
-        className="bg-[#0a0a0a] px-4 py-16 md:py-24"
-      >
+      <section id="gallery" className="bg-[#0a0a0a] px-4 py-16 md:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center" data-aos="fade-up">
             <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#d4af37]">
@@ -355,29 +561,42 @@ export default function HomePage() {
             <h2 className="mb-4 text-4xl font-bold text-white md:text-5xl">
               Luxury Boutique Showcase
             </h2>
-            <p className="text-gray-400">Curated designs and exclusive creations</p>
+            <p className="text-gray-400">
+              Curated designs and exclusive creations
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {displayedGallery.map((image, index) => (
-              <figure
-                key={image.src}
-                data-aos="zoom-in"
-                data-aos-delay={index * 100}
-                className="group relative h-80 overflow-hidden rounded-2xl border border-[#3a3a3a]"
-              >
-                <img
-                  src={image.src}
-                  alt={image.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
-                <figcaption className="absolute bottom-0 left-0 right-0 p-6 text-white opacity-0 transition duration-300 group-hover:opacity-100">
-                  <span className="text-sm font-semibold tracking-wide text-[#d4af37]">
-                    {image.title}
-                  </span>
-                </figcaption>
-              </figure>
+          <div className="space-y-10">
+            {groupedGalleryEntries.map(([category, images], groupIndex) => (
+              <div key={category}>
+                <h3 className="mb-4 text-xl font-semibold uppercase tracking-[0.15em] text-[#d4af37]">
+                  {category}
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {images.map((image, index) => (
+                    <figure
+                      key={`${category}-${image.src}-${index}`}
+                      data-aos="zoom-in"
+                      data-aos-delay={(groupIndex * 3 + index) * 100}
+                      className="group relative h-80 overflow-hidden rounded-2xl border border-[#3a3a3a]"
+                    >
+                      <img
+                        src={getImageUrl(image.src)}
+                        alt={image.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
+                      <figcaption className="absolute bottom-0 left-0 right-0 p-6 text-white opacity-0 transition duration-300 group-hover:opacity-100">
+                        <span className="text-sm font-semibold tracking-wide text-[#d4af37]">
+                          {image.title}
+                        </span>
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -398,33 +617,99 @@ export default function HomePage() {
                 Let's Design Your Signature Look
               </h2>
               <p className="mb-8 text-gray-400">
-                Visit our studio for couture consultations, bridal customization, and
-                personalized design sessions.
+                Visit our studio for couture consultations, bridal
+                customization, and personalized design sessions.
               </p>
 
               <div className="mb-6 rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] p-6">
                 <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[#d4af37]">
                   Phone
                 </p>
-                <p className="mb-2 text-white">+91 98765 43210</p>
-                <p className="text-white">+91 99887 76655</p>
+                {siteSettings.contactNumbers.map((number) => (
+                  <p
+                    key={number}
+                    className="flex items-center gap-2 text-white"
+                  >
+                    <PhoneIcon />
+                    <span>{number}</span>
+                  </p>
+                ))}
               </div>
 
-              <div className="mb-8 rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] p-6">
-                <p className="mb-2 text-xs uppercase tracking-[0.2em] text-[#d4af37]">
-                  Location
+              <div className="mb-8 rounded-[28px] border border-[#2c3150] bg-gradient-to-br from-[#12162f] to-[#0d1126] p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+                <p className="text-3xl font-bold text-white">Address</p>
+                <div className="mx-auto mt-2 h-1 w-20 rounded-full bg-gradient-to-r from-[#d4af37] to-[#f2d16b]" />
+
+                <p className="mx-auto mt-4 max-w-xl text-xl leading-relaxed text-[#f3f4ff]">
+                  {siteSettings.location}
                 </p>
-                <p className="text-white">Pune, Maharashtra, India</p>
+
+                <div className="mt-6 overflow-hidden rounded-2xl border border-[#3a4167] bg-[#0a0a0a]">
+                  <iframe
+                    title="Boutique location map"
+                    src={mapsEmbedUrl}
+                    className="h-[240px] w-full"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+
+                <a
+                  href={mapsLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mx-auto mt-6 inline-flex items-center gap-2 rounded-full bg-[#1d233d] px-8 py-3 text-lg font-semibold text-white transition hover:bg-[#252c4a]"
+                >
+                  <LocationIcon />
+                  <span>Get Direction On Google Map</span>
+                </a>
               </div>
 
-              <a
-                href="https://wa.me/919876543210"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-semibold text-white transition hover:-translate-y-1 hover:shadow-lg"
-              >
-                💬 Chat on WhatsApp
-              </a>
+              <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-semibold text-white transition hover:-translate-y-1 hover:shadow-lg"
+                >
+                  <img
+                    src="/whatsapp-logo.png"
+                    alt="WhatsApp"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-5 w-5 brightness-0 invert"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.classList.remove(
+                        "brightness-0",
+                        "invert",
+                      );
+                      event.currentTarget.src = "/whatsapp-logo.svg";
+                    }}
+                  />
+                  <span>Chat on WhatsApp</span>
+                </a>
+
+                <a
+                  href={instagramLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#8134af] px-6 py-3 font-semibold text-white transition hover:-translate-y-1 hover:shadow-lg"
+                >
+                  <img
+                    src="/instagram-logo.png"
+                    alt="Instagram"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-5 w-5"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = "/instagram-logo.svg";
+                    }}
+                  />
+                  <span>Follow on Instagram</span>
+                </a>
+              </div>
             </div>
 
             <form
@@ -440,7 +725,12 @@ export default function HomePage() {
                   type="text"
                   placeholder="Your name"
                   value={enquiryForm.customerName}
-                  onChange={(e) => setEnquiryForm({ ...enquiryForm, customerName: e.target.value })}
+                  onChange={(e) =>
+                    setEnquiryForm({
+                      ...enquiryForm,
+                      customerName: e.target.value,
+                    })
+                  }
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -454,7 +744,9 @@ export default function HomePage() {
                   type="tel"
                   placeholder="Your phone number"
                   value={enquiryForm.phone}
-                  onChange={(e) => setEnquiryForm({ ...enquiryForm, phone: e.target.value })}
+                  onChange={(e) =>
+                    setEnquiryForm({ ...enquiryForm, phone: e.target.value })
+                  }
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -464,9 +756,14 @@ export default function HomePage() {
                 <label className="mb-2 block text-xs uppercase tracking-[0.1em] text-[#d4af37]">
                   Service Type
                 </label>
-                <select 
+                <select
                   value={enquiryForm.serviceType}
-                  onChange={(e) => setEnquiryForm({ ...enquiryForm, serviceType: e.target.value })}
+                  onChange={(e) =>
+                    setEnquiryForm({
+                      ...enquiryForm,
+                      serviceType: e.target.value,
+                    })
+                  }
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                 >
                   <option>Aari Work</option>
@@ -486,7 +783,9 @@ export default function HomePage() {
                   placeholder="Tell us about your design vision..."
                   rows={5}
                   value={enquiryForm.message}
-                  onChange={(e) => setEnquiryForm({ ...enquiryForm, message: e.target.value })}
+                  onChange={(e) =>
+                    setEnquiryForm({ ...enquiryForm, message: e.target.value })
+                  }
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#1a1a1a] px-4 py-3 text-white transition focus:border-[#d4af37] focus:outline-none"
                   required
                 />
@@ -499,7 +798,9 @@ export default function HomePage() {
                 Send Inquiry
               </button>
               {enquiryStatus && (
-                <p className={`mt-2 text-sm ${enquiryStatus.includes("Thank you") ? "text-green-400" : "text-red-400"}`}>
+                <p
+                  className={`mt-2 text-sm ${enquiryStatus.includes("Thank you") ? "text-green-400" : "text-red-400"}`}
+                >
                   {enquiryStatus}
                 </p>
               )}
@@ -512,31 +813,48 @@ export default function HomePage() {
       <section id="reviews" className="bg-[#111111] px-4 py-16 md:py-24">
         <div className="mx-auto max-w-7xl space-y-10">
           <div className="text-center" data-aos="fade-up">
-            <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#d4af37]">Reviews</p>
-            <h2 className="mb-4 text-4xl font-bold text-white md:text-5xl">Client Love & Ratings</h2>
-            <p className="text-gray-400">Read all reviews, then leave your own with a 1-5 star rating.</p>
+            <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#d4af37]">
+              Reviews
+            </p>
+            <h2 className="mb-4 text-4xl font-bold text-white md:text-5xl">
+              Client Love & Ratings
+            </h2>
+            <p className="text-gray-400">
+              Read all reviews, then leave your own with a 1-5 star rating.
+            </p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="rounded-2xl border border-[#3a3a3a] bg-[#1a1a1a] p-6 lg:col-span-1">
-              <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">Post Your Review</h3>
+              <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">
+                Post Your Review
+              </h3>
               <form className="space-y-3" onSubmit={handleReviewSubmit}>
                 <input
                   className="w-full rounded-lg border border-[#3a3a3a] bg-[#121212] px-3 py-2 text-white"
                   placeholder="Your name"
                   value={reviewForm.reviewerName}
-                  onChange={(e) => setReviewForm({ ...reviewForm, reviewerName: e.target.value })}
+                  onChange={(e) =>
+                    setReviewForm({
+                      ...reviewForm,
+                      reviewerName: e.target.value,
+                    })
+                  }
                   required
                 />
                 <textarea
                   className="min-h-24 w-full rounded-lg border border-[#3a3a3a] bg-[#121212] px-3 py-2 text-white"
                   placeholder="Share your experience"
                   value={reviewForm.message}
-                  onChange={(e) => setReviewForm({ ...reviewForm, message: e.target.value })}
+                  onChange={(e) =>
+                    setReviewForm({ ...reviewForm, message: e.target.value })
+                  }
                   required
                 />
                 <div>
-                  <p className="mb-2 text-sm text-gray-300">Choose stars (1-5)</p>
+                  <p className="mb-2 text-sm text-gray-300">
+                    Choose stars (1-5)
+                  </p>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -547,7 +865,9 @@ export default function HomePage() {
                             ? "bg-[#d4af37] text-black"
                             : "border border-[#3a3a3a] text-[#d4af37]"
                         }`}
-                        onClick={() => setReviewForm({ ...reviewForm, stars: star })}
+                        onClick={() =>
+                          setReviewForm({ ...reviewForm, stars: star })
+                        }
                         aria-label={`Select ${star} star rating`}
                       >
                         ★
@@ -562,23 +882,33 @@ export default function HomePage() {
                 >
                   {isSubmittingReview ? "Posting..." : "Submit Review"}
                 </button>
-                {reviewStatus && <p className="text-sm text-gray-400">{reviewStatus}</p>}
+                {reviewStatus && (
+                  <p className="text-sm text-gray-400">{reviewStatus}</p>
+                )}
               </form>
             </div>
 
             <div className="rounded-2xl border border-[#3a3a3a] bg-[#1a1a1a] p-6 lg:col-span-2">
-              <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">Review Analytics</h3>
+              <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">
+                Review Analytics
+              </h3>
               <div className="mb-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-[#2e2e2e] bg-[#141414] p-4">
-                  <p className="text-xs uppercase tracking-widest text-gray-400">Average Rating</p>
+                  <p className="text-xs uppercase tracking-widest text-gray-400">
+                    Average Rating
+                  </p>
                   <p className="mt-2 text-3xl font-bold text-white">
                     {reviewAnalytics?.averageRating?.toFixed(1) || "0.0"}
                     <span className="ml-1 text-lg text-[#d4af37]">/5</span>
                   </p>
                 </div>
                 <div className="rounded-xl border border-[#2e2e2e] bg-[#141414] p-4">
-                  <p className="text-xs uppercase tracking-widest text-gray-400">Total Reviews</p>
-                  <p className="mt-2 text-3xl font-bold text-white">{reviewAnalytics?.totalReviews || 0}</p>
+                  <p className="text-xs uppercase tracking-widest text-gray-400">
+                    Total Reviews
+                  </p>
+                  <p className="mt-2 text-3xl font-bold text-white">
+                    {reviewAnalytics?.totalReviews || 0}
+                  </p>
                 </div>
               </div>
 
@@ -590,11 +920,18 @@ export default function HomePage() {
 
                   return (
                     <div key={star} className="flex items-center gap-3">
-                      <span className="w-14 text-sm text-[#d4af37]">{star} star</span>
+                      <span className="w-14 text-sm text-[#d4af37]">
+                        {star} star
+                      </span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#2a2a2a]">
-                        <div className="h-full bg-[#d4af37]" style={{ width: `${percentage}%` }} />
+                        <div
+                          className="h-full bg-[#d4af37]"
+                          style={{ width: `${percentage}%` }}
+                        />
                       </div>
-                      <span className="w-10 text-right text-xs text-gray-300">{count}</span>
+                      <span className="w-10 text-right text-xs text-gray-300">
+                        {count}
+                      </span>
                     </div>
                   );
                 })}
@@ -603,14 +940,27 @@ export default function HomePage() {
           </div>
 
           <div className="rounded-2xl border border-[#3a3a3a] bg-[#1a1a1a] p-6">
-            <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">All Reviews</h3>
+            <h3 className="mb-4 text-xl font-semibold text-[#d4af37]">
+              All Reviews
+            </h3>
             <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-              {reviews.length === 0 && <p className="text-gray-400">No reviews yet. Be the first to review.</p>}
+              {reviews.length === 0 && (
+                <p className="text-gray-400">
+                  No reviews yet. Be the first to review.
+                </p>
+              )}
               {reviews.map((review) => (
-                <article key={review.id} className="rounded-xl border border-[#2e2e2e] bg-[#141414] p-4">
+                <article
+                  key={review.id}
+                  className="rounded-xl border border-[#2e2e2e] bg-[#141414] p-4"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-semibold text-white">{review.reviewerName}</p>
-                    <p className="text-sm text-[#d4af37]">{renderStars(review.stars)}</p>
+                    <p className="font-semibold text-white">
+                      {review.reviewerName}
+                    </p>
+                    <p className="text-sm text-[#d4af37]">
+                      {renderStars(review.stars)}
+                    </p>
                   </div>
                   <p className="mt-2 text-sm text-gray-300">{review.message}</p>
                 </article>
@@ -622,13 +972,22 @@ export default function HomePage() {
 
       {/* FLOATING WHATSAPP */}
       <a
-        href="https://wa.me/919876543210"
+        href={whatsappLink}
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-2xl transition hover:scale-110"
         title="Chat on WhatsApp"
       >
-        💬
+        <img
+          src="/whatsapp-logo.png"
+          alt="WhatsApp"
+          className="h-8 w-8 brightness-0 invert"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.classList.remove("brightness-0", "invert");
+            event.currentTarget.src = "/whatsapp-logo.svg";
+          }}
+        />
       </a>
 
       {/* FOOTER */}

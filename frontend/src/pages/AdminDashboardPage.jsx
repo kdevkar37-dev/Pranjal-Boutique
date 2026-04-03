@@ -1,60 +1,97 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import { getImageUrl } from "../utils/imageUrl";
 import {
   getInquiries,
   getReviewAnalytics,
   getReviews,
   getServices,
+  getServiceCategoryCounts,
+  getSiteSettings,
   updateInquiryStatus,
   respondToInquiry,
   deleteReview,
+  updateSiteSettings,
 } from "../api/serviceApi";
+
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const initialService = {
   title: "",
-  category: "AARI",
+  category: "",
   description: "",
   imageUrl: "",
   imageFile: null,
 };
 
-const categories = [
-  { key: "AARI", label: "Aari Work" },
-  { key: "EMBROIDERY", label: "Embroidery" },
-  { key: "MEHENDI", label: "Mehendi Art" },
-  { key: "FABRIC_PAINTING", label: "Fabric Painting" },
-  { key: "FLOWER_JEWELLERY", label: "Flower Jewellery" },
-  { key: "CUSTOM_DESIGN", label: "Custom Design" },
+const defaultCategories = [
+  "AARI",
+  "EMBROIDERY",
+  "MEHENDI",
+  "FABRIC_PAINTING",
+  "FLOWER_JEWELLERY",
+  "CUSTOM_DESIGN",
 ];
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
-
 export default function AdminDashboardPage() {
+  const navigate = useNavigate();
   const [serviceForm, setServiceForm] = useState(initialService);
   const [services, setServices] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewAnalytics, setReviewAnalytics] = useState(null);
   const [status, setStatus] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("AARI");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("ALL");
   const [editingService, setEditingService] = useState(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedInquiryStatus, setSelectedInquiryStatus] = useState("ALL");
   const [inquiryResponses, setInquiryResponses] = useState({});
   const [expandedInquiry, setExpandedInquiry] = useState(null);
+  const [categoryRecords, setCategoryRecords] = useState([]);
+  const [siteSettingsForm, setSiteSettingsForm] = useState({
+    contactNumbersText: "+91 98765 43210\n+91 99887 76655",
+    location: "Pune, Maharashtra, India",
+    googleMapsUrl: "",
+  });
 
   async function refresh() {
-    const [serviceData, inquiryData, reviewData, reviewAnalyticsData] = await Promise.all([
+    const [
+      serviceData,
+      inquiryData,
+      reviewData,
+      reviewAnalyticsData,
+      siteSettings,
+    ] = await Promise.all([
       getServices(),
       getInquiries(),
       getReviews(),
       getReviewAnalytics(),
+      getSiteSettings(),
     ]);
+
+    let categoryRecordsData = [];
+    try {
+      categoryRecordsData = await getServiceCategoryCounts();
+    } catch {
+      categoryRecordsData = [];
+    }
+
     setServices(serviceData);
     setInquiries(inquiryData);
     setReviews(reviewData);
     setReviewAnalytics(reviewAnalyticsData);
+    setCategoryRecords(categoryRecordsData);
+    setSiteSettingsForm({
+      contactNumbersText: (siteSettings?.contactNumbers?.length
+        ? siteSettings.contactNumbers
+        : [siteSettings?.contactNumber || "+91 98765 43210"]
+      ).join("\n"),
+      location: siteSettings?.location || "Pune, Maharashtra, India",
+      googleMapsUrl: siteSettings?.googleMapsUrl || "",
+    });
   }
 
   useEffect(() => {
@@ -65,6 +102,11 @@ export default function AdminDashboardPage() {
     event.preventDefault();
     setStatus("Uploading service...");
     try {
+      const categoryValue = selectedCategory.trim();
+      if (!categoryValue) {
+        throw new Error("Category is required");
+      }
+
       const token = localStorage.getItem("boutique-token");
       let imageUrl = serviceForm.imageUrl;
 
@@ -100,7 +142,7 @@ export default function AdminDashboardPage() {
         },
         body: JSON.stringify({
           title: serviceForm.title,
-          category: selectedCategory,
+          category: categoryValue,
           description: serviceForm.description,
           imageUrl: imageUrl,
         }),
@@ -121,18 +163,22 @@ export default function AdminDashboardPage() {
 
   function handleEditService(service) {
     setEditingService(service);
+    setSelectedCategory(service.category || "");
     setServiceForm({
       title: service.title,
+      category: service.category || "",
       description: service.description,
       imageUrl: service.imageUrl,
       imageFile: null,
     });
-    setPreviewImage(service.imageUrl);
+    // Use cache-busting for images to ensure fresh load from server
+    setPreviewImage(getImageUrl(service.imageUrl, true));
     setShowServiceForm(true);
   }
 
   function handleAddNew() {
     setEditingService(null);
+    setSelectedCategory("");
     setServiceForm(initialService);
     setPreviewImage(null);
     setShowServiceForm(true);
@@ -140,6 +186,7 @@ export default function AdminDashboardPage() {
 
   function cancelServiceForm() {
     setEditingService(null);
+    setSelectedCategory("");
     setServiceForm(initialService);
     setPreviewImage(null);
     setShowServiceForm(false);
@@ -201,9 +248,77 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleSaveSiteSettings(event) {
+    event.preventDefault();
+    setStatus("Saving contact and location...");
+    try {
+      const contactNumbers = siteSettingsForm.contactNumbersText
+        .split(/\r?\n|,/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      await updateSiteSettings({
+        contactNumbers,
+        location: siteSettingsForm.location,
+        googleMapsUrl: siteSettingsForm.googleMapsUrl,
+      });
+      await refresh();
+      setStatus("✅ Contact numbers and location updated");
+    } catch (err) {
+      setStatus(`❌ Failed to update contact/location: ${err.message}`);
+    }
+  }
+
   // Calculate notification counts
-  const newInquiries = inquiries.filter((i) => i.status === "NEW" || i.status === "PENDING").length;
+  const newInquiries = inquiries.filter(
+    (i) => i.status === "NEW" || i.status === "PENDING",
+  ).length;
   const newReviews = reviews.length;
+  const categoryOptions = Array.from(
+    new Set([
+      ...defaultCategories,
+      ...services
+        .map((service) => (service.category || "").trim())
+        .filter(Boolean),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const visibleServices = services.filter((service) => {
+    if (selectedCategoryFilter === "ALL") {
+      return true;
+    }
+    return (
+      (service.category || "").trim().toLowerCase() ===
+      selectedCategoryFilter.toLowerCase()
+    );
+  });
+
+  const categoryCounts = categoryOptions
+    .filter((category) => category !== "ALL")
+    .map((category) => {
+      const count = services.filter(
+        (service) =>
+          (service.category || "").trim().toLowerCase() ===
+          category.toLowerCase(),
+      ).length;
+      return { category, count };
+    });
+
+  const effectiveCategoryRecords =
+    categoryRecords.length > 0
+      ? categoryRecords
+      : categoryCounts.map(({ category, count }) => ({
+          category,
+          itemCount: count,
+          imageCount: services.filter(
+            (service) =>
+              (service.category || "").trim().toLowerCase() ===
+                category.toLowerCase() &&
+              Boolean((service.imageUrl || "").trim()),
+          ).length,
+        }));
+
+  const totalPostedItems = services.length;
 
   return (
     <PageTransition>
@@ -211,7 +326,9 @@ export default function AdminDashboardPage() {
         {/* Header with Notification Badges */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">Admin</p>
+            <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">
+              Admin
+            </p>
             <h2 className="font-heading text-4xl">Dashboard</h2>
           </div>
           <div className="flex gap-4">
@@ -219,8 +336,12 @@ export default function AdminDashboardPage() {
               <div className="flex items-center gap-2 rounded-full bg-yellow-500/20 border border-yellow-500/50 px-4 py-2">
                 <span className="text-2xl">🔔</span>
                 <div>
-                  <p className="text-xs text-[color:var(--text-secondary)]">New Inquiries</p>
-                  <p className="text-lg font-bold text-yellow-400">{newInquiries}</p>
+                  <p className="text-xs text-[color:var(--text-secondary)]">
+                    New Inquiries
+                  </p>
+                  <p className="text-lg font-bold text-yellow-400">
+                    {newInquiries}
+                  </p>
                 </div>
               </div>
             )}
@@ -228,46 +349,113 @@ export default function AdminDashboardPage() {
               <div className="flex items-center gap-2 rounded-full bg-blue-500/20 border border-blue-500/50 px-4 py-2">
                 <span className="text-2xl">⭐</span>
                 <div>
-                  <p className="text-xs text-[color:var(--text-secondary)]">Total Reviews</p>
-                  <p className="text-lg font-bold text-blue-400">{newReviews}</p>
+                  <p className="text-xs text-[color:var(--text-secondary)]">
+                    Total Reviews
+                  </p>
+                  <p className="text-lg font-bold text-blue-400">
+                    {newReviews}
+                  </p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
+        <section className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
+          <h3 className="text-xl font-semibold mb-4">Public Contact Details</h3>
+          <form
+            onSubmit={handleSaveSiteSettings}
+            className="grid gap-4 md:grid-cols-2"
+          >
+            <textarea
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 min-h-24"
+              placeholder="Contact Numbers (one per line)"
+              value={siteSettingsForm.contactNumbersText}
+              onChange={(e) =>
+                setSiteSettingsForm({
+                  ...siteSettingsForm,
+                  contactNumbersText: e.target.value,
+                })
+              }
+              required
+            />
+            <input
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+              placeholder="Location"
+              value={siteSettingsForm.location}
+              onChange={(e) =>
+                setSiteSettingsForm({
+                  ...siteSettingsForm,
+                  location: e.target.value,
+                })
+              }
+              required
+            />
+            <input
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 md:col-span-2"
+              placeholder="Google Maps URL (share or embed URL)"
+              value={siteSettingsForm.googleMapsUrl}
+              onChange={(e) =>
+                setSiteSettingsForm({
+                  ...siteSettingsForm,
+                  googleMapsUrl: e.target.value,
+                })
+              }
+            />
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                className="rounded-full bg-[color:var(--accent)] px-5 py-2 font-semibold text-[color:var(--accent-contrast)]"
+              >
+                Save Contact & Location
+              </button>
+            </div>
+          </form>
+        </section>
+
         {/* Service Form */}
         {showServiceForm && (
-          <form onSubmit={handleCreateService} className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
-            <h3 className="text-xl font-semibold">{editingService ? "Edit Service" : "Add New Service"}</h3>
+          <form
+            onSubmit={handleCreateService}
+            className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6"
+          >
+            <h3 className="text-xl font-semibold">
+              {editingService ? "Edit Service" : "Add New Service"}
+            </h3>
             <div className="grid gap-3 md:grid-cols-2">
               <input
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
                 placeholder="Title"
                 value={serviceForm.title}
-                onChange={(e) => setServiceForm({ ...serviceForm, title: e.target.value })}
+                onChange={(e) =>
+                  setServiceForm({ ...serviceForm, title: e.target.value })
+                }
                 required
               />
-              <select
+              <input
+                list="service-category-options"
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+                placeholder="Category (existing or new)"
                 value={selectedCategory}
                 onChange={(e) => {
                   setSelectedCategory(e.target.value);
                   setServiceForm({ ...serviceForm, category: e.target.value });
                 }}
-              >
-                {categories.map((cat) => (
-                  <option key={cat.key} value={cat.key}>
-                    {cat.label}
-                  </option>
+                required
+              />
+              <datalist id="service-category-options">
+                {categoryOptions.map((category) => (
+                  <option key={category} value={category} />
                 ))}
-              </select>
+              </datalist>
             </div>
             <textarea
               className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
               placeholder="Description"
               value={serviceForm.description}
-              onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })}
+              onChange={(e) =>
+                setServiceForm({ ...serviceForm, description: e.target.value })
+              }
               rows="3"
               required
             />
@@ -288,7 +476,11 @@ export default function AdminDashboardPage() {
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 w-full"
               />
               {previewImage && (
-                <img src={previewImage} alt="Preview" className="mt-3 max-h-40 rounded-lg" />
+                <img
+                  src={previewImage}
+                  alt="Preview"
+                  className="mt-3 max-h-40 rounded-lg"
+                />
               )}
             </div>
             <div className="flex gap-2">
@@ -313,73 +505,116 @@ export default function AdminDashboardPage() {
         <section>
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">Manage</p>
+              <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">
+                Manage
+              </p>
               <h3 className="font-heading text-3xl">Services</h3>
             </div>
-            {!showServiceForm && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleAddNew}
-                className="rounded-full bg-[#d4af37] px-6 py-2 font-semibold text-black hover:opacity-90 transition"
+                onClick={() => navigate("/admin/rental-products")}
+                className="rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37] hover:text-black"
               >
-                + Add New Service
+                Rental & Customization
               </button>
-            )}
+              {!showServiceForm && (
+                <button
+                  onClick={handleAddNew}
+                  className="rounded-full bg-[#d4af37] px-6 py-2 font-semibold text-black hover:opacity-90 transition"
+                >
+                  + Add New Service
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h4 className="text-lg font-semibold">Category Records</h4>
+              <p className="text-sm font-semibold text-[color:var(--accent)]">
+                Total Posted Items: {totalPostedItems}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {effectiveCategoryRecords.map(
+                ({ category, itemCount, imageCount }) => (
+                  <article
+                    key={category}
+                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
+                  >
+                    <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
+                      {category}
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-[color:var(--accent)]">
+                      {itemCount}
+                    </p>
+                    <p className="text-xs text-[color:var(--text-secondary)]">
+                      items posted
+                    </p>
+                    <p className="mt-1 text-xs text-[color:var(--text-secondary)]">
+                      images posted: {imageCount}
+                    </p>
+                  </article>
+                ),
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-6">
-            {categories.map((cat) => (
+            {["ALL", ...categoryOptions].map((category) => (
               <button
-                key={cat.key}
-                onClick={() => setSelectedCategory(cat.key)}
+                key={category}
+                onClick={() => setSelectedCategoryFilter(category)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                  selectedCategory === cat.key
+                  selectedCategoryFilter === category
                     ? "border-2 border-[#d4af37] bg-[#d4af37] text-black"
                     : "border border-[#d4af37] text-[#d4af37] hover:bg-[#d4af37] hover:text-black"
                 }`}
               >
-                {cat.label}
+                {category}
               </button>
             ))}
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {services
-              .filter((s) => s.category === selectedCategory)
-              .map((service) => (
-                <article
-                  key={service.id}
-                  className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 overflow-hidden hover:shadow-lg transition"
-                >
-                  <img
-                    src={service.imageUrl}
-                    alt={service.title}
-                    className="h-40 w-full rounded object-cover mb-3"
-                  />
-                  <h4 className="font-semibold mb-2 line-clamp-1">{service.title}</h4>
-                  <p className="text-sm text-[color:var(--text-secondary)] mb-3 line-clamp-2">
-                    {service.description}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditService(service)}
-                      className="flex-1 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteService(service.id)}
-                      className="flex-1 rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 transition"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
+            {visibleServices.map((service) => (
+              <article
+                key={service.id}
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-4 overflow-hidden hover:shadow-lg transition"
+              >
+                <img
+                  src={getImageUrl(service.imageUrl)}
+                  alt={service.title}
+                  className="h-40 w-full rounded object-cover mb-3"
+                />
+                <h4 className="font-semibold mb-2 line-clamp-1">
+                  {service.title}
+                </h4>
+                <p className="text-sm text-[color:var(--text-secondary)] mb-3 line-clamp-2">
+                  {service.description}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEditService(service)}
+                    className="flex-1 rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteService(service.id)}
+                    className="flex-1 rounded bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 transition"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
 
-          {services.filter((s) => s.category === selectedCategory).length === 0 && !showServiceForm && (
+          {visibleServices.length === 0 && !showServiceForm && (
             <p className="text-center text-[color:var(--text-secondary)] mt-8">
-              No services for this category yet. {!showServiceForm && "Click 'Add New Service' to get started."}
+              No services in this category yet.{" "}
+              {!showServiceForm && "Click 'Add New Service' to get started."}
             </p>
           )}
         </section>
@@ -391,7 +626,9 @@ export default function AdminDashboardPage() {
               <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--accent)]">
                 Inquiries
               </p>
-              <h3 className="font-heading text-3xl">Customer Inquiries & Orders</h3>
+              <h3 className="font-heading text-3xl">
+                Customer Inquiries & Orders
+              </h3>
             </div>
           </div>
 
@@ -401,14 +638,20 @@ export default function AdminDashboardPage() {
               <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
                 Total Inquiries
               </p>
-              <p className="mt-2 text-3xl font-bold text-[#d4af37]">{inquiries.length}</p>
+              <p className="mt-2 text-3xl font-bold text-[#d4af37]">
+                {inquiries.length}
+              </p>
             </div>
             <div className="rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 p-4">
               <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
                 New/Pending
               </p>
               <p className="mt-2 text-3xl font-bold text-yellow-400">
-                {inquiries.filter((i) => i.status === "PENDING" || i.status === "NEW").length}
+                {
+                  inquiries.filter(
+                    (i) => i.status === "PENDING" || i.status === "NEW",
+                  ).length
+                }
               </p>
             </div>
             <div className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4">
@@ -450,12 +693,18 @@ export default function AdminDashboardPage() {
           <div className="space-y-4">
             {inquiries.length === 0 ? (
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-12 text-center">
-                <p className="text-[color:var(--text-secondary)]">No inquiries yet.</p>
+                <p className="text-[color:var(--text-secondary)]">
+                  No inquiries yet.
+                </p>
               </div>
             ) : (
               inquiries
                 .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                .filter((i) => selectedInquiryStatus === "ALL" || i.status === selectedInquiryStatus)
+                .filter(
+                  (i) =>
+                    selectedInquiryStatus === "ALL" ||
+                    i.status === selectedInquiryStatus,
+                )
                 .map((inquiry) => {
                   const statusConfig = {
                     NEW: {
@@ -464,7 +713,8 @@ export default function AdminDashboardPage() {
                       icon: "🔴",
                     },
                     PENDING: {
-                      color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
+                      color:
+                        "bg-yellow-500/20 text-yellow-300 border-yellow-500/50",
                       bgColor: "from-yellow-500/5 to-yellow-500/0",
                       icon: "⏳",
                     },
@@ -474,13 +724,15 @@ export default function AdminDashboardPage() {
                       icon: "📞",
                     },
                     CLOSED: {
-                      color: "bg-green-500/20 text-green-300 border-green-500/50",
+                      color:
+                        "bg-green-500/20 text-green-300 border-green-500/50",
                       bgColor: "from-green-500/5 to-green-500/0",
                       icon: "✅",
                     },
                   };
 
-                  const config = statusConfig[inquiry.status] || statusConfig.PENDING;
+                  const config =
+                    statusConfig[inquiry.status] || statusConfig.PENDING;
 
                   return (
                     <div
@@ -499,10 +751,15 @@ export default function AdminDashboardPage() {
                                 📞 {inquiry.phone}
                               </p>
                               <p className="text-xs text-[color:var(--text-secondary)] mt-1">
-                                📅 {new Date(inquiry.createdAt).toLocaleDateString()}
+                                📅{" "}
+                                {new Date(
+                                  inquiry.createdAt,
+                                ).toLocaleDateString()}
                               </p>
                             </div>
-                            <div className={`rounded-full border ${config.color} px-4 py-2 text-sm font-semibold whitespace-nowrap`}>
+                            <div
+                              className={`rounded-full border ${config.color} px-4 py-2 text-sm font-semibold whitespace-nowrap`}
+                            >
                               {config.icon} {inquiry.status}
                             </div>
                           </div>
@@ -523,13 +780,18 @@ export default function AdminDashboardPage() {
                             {/* Admin Response */}
                             {inquiry.adminResponse && (
                               <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4">
-                                <p className="text-xs font-semibold text-green-400 mb-2">✅ Your Response:</p>
+                                <p className="text-xs font-semibold text-green-400 mb-2">
+                                  ✅ Your Response:
+                                </p>
                                 <p className="text-sm text-[color:var(--text-secondary)]">
                                   {inquiry.adminResponse}
                                 </p>
                                 {inquiry.respondedAt && (
                                   <p className="text-xs text-[color:var(--text-secondary)] mt-2">
-                                    Responded: {new Date(inquiry.respondedAt).toLocaleDateString()}
+                                    Responded:{" "}
+                                    {new Date(
+                                      inquiry.respondedAt,
+                                    ).toLocaleDateString()}
                                   </p>
                                 )}
                               </div>
@@ -543,13 +805,20 @@ export default function AdminDashboardPage() {
                                 </label>
                                 <textarea
                                   value={inquiryResponses[inquiry.id] || ""}
-                                  onChange={(e) => setInquiryResponses({ ...inquiryResponses, [inquiry.id]: e.target.value })}
+                                  onChange={(e) =>
+                                    setInquiryResponses({
+                                      ...inquiryResponses,
+                                      [inquiry.id]: e.target.value,
+                                    })
+                                  }
                                   placeholder="Type your response here..."
                                   className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text-primary)] placeholder-[color:var(--text-secondary)]"
                                   rows="3"
                                 />
                                 <button
-                                  onClick={() => handleRespondToInquiry(inquiry.id)}
+                                  onClick={() =>
+                                    handleRespondToInquiry(inquiry.id)
+                                  }
                                   className="w-full rounded-full bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#e5c158]"
                                 >
                                   📤 Send Response
@@ -562,7 +831,9 @@ export default function AdminDashboardPage() {
                           <div className="flex flex-wrap gap-2 pt-2">
                             {inquiry.status !== "CONTACTED" && (
                               <button
-                                onClick={() => handleStatus(inquiry.id, "CONTACTED")}
+                                onClick={() =>
+                                  handleStatus(inquiry.id, "CONTACTED")
+                                }
                                 className="rounded-full bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                               >
                                 📞 Mark Contacted
@@ -570,7 +841,9 @@ export default function AdminDashboardPage() {
                             )}
                             {inquiry.status !== "CLOSED" && (
                               <button
-                                onClick={() => handleStatus(inquiry.id, "CLOSED")}
+                                onClick={() =>
+                                  handleStatus(inquiry.id, "CLOSED")
+                                }
                                 className="rounded-full bg-green-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-green-700"
                               >
                                 ✓ Mark Closed
@@ -578,7 +851,9 @@ export default function AdminDashboardPage() {
                             )}
                             {inquiry.status === "CLOSED" && (
                               <button
-                                onClick={() => handleStatus(inquiry.id, "PENDING")}
+                                onClick={() =>
+                                  handleStatus(inquiry.id, "PENDING")
+                                }
                                 className="rounded-full bg-[#d4af37]/20 px-6 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37]/30"
                               >
                                 ↻ Reopen
@@ -596,8 +871,10 @@ export default function AdminDashboardPage() {
 
         {/* Reviews Section */}
         <section>
-          <h3 className="font-heading text-3xl mb-6">Review Analytics & Management</h3>
-          
+          <h3 className="font-heading text-3xl mb-6">
+            Review Analytics & Management
+          </h3>
+
           <div className="mt-3 grid gap-3 md:grid-cols-2 mb-6">
             <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
               <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
@@ -607,7 +884,9 @@ export default function AdminDashboardPage() {
                 <p className="text-4xl font-bold text-[#d4af37]">
                   {reviewAnalytics?.averageRating?.toFixed(1) || "0.0"}
                 </p>
-                <span className="text-xl text-[color:var(--text-secondary)]">/5</span>
+                <span className="text-xl text-[color:var(--text-secondary)]">
+                  /5
+                </span>
               </div>
               <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
                 Based on {reviewAnalytics?.totalReviews || 0} reviews
@@ -617,9 +896,13 @@ export default function AdminDashboardPage() {
               <p className="text-xs uppercase tracking-wider text-[color:var(--text-secondary)]">
                 Total Reviews
               </p>
-              <p className="mt-3 text-4xl font-bold text-blue-400">{reviewAnalytics?.totalReviews || 0}</p>
+              <p className="mt-3 text-4xl font-bold text-blue-400">
+                {reviewAnalytics?.totalReviews || 0}
+              </p>
               {newReviews > 0 && (
-                <p className="mt-2 text-sm text-yellow-400">🔔 {newReviews} reviews posted</p>
+                <p className="mt-2 text-sm text-yellow-400">
+                  🔔 {newReviews} reviews posted
+                </p>
               )}
             </article>
           </div>
@@ -637,9 +920,9 @@ export default function AdminDashboardPage() {
                   <div key={star} className="flex items-center gap-3">
                     <span className="w-12 text-sm font-semibold">{star}★</span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[color:var(--surface)]">
-                      <div 
-                        className="h-full bg-gradient-to-r from-[#d4af37] to-[#e5c158]" 
-                        style={{ width: `${percentage}%` }} 
+                      <div
+                        className="h-full bg-gradient-to-r from-[#d4af37] to-[#e5c158]"
+                        style={{ width: `${percentage}%` }}
                       />
                     </div>
                     <span className="w-12 text-right text-xs font-semibold text-[color:var(--text-secondary)]">
@@ -669,9 +952,12 @@ export default function AdminDashboardPage() {
                     >
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div>
-                          <p className="font-semibold text-[color:var(--text-primary)]">{review.reviewerName}</p>
+                          <p className="font-semibold text-[color:var(--text-primary)]">
+                            {review.reviewerName}
+                          </p>
                           <p className="text-sm text-[#d4af37] font-semibold">
-                            {"★".repeat(review.stars)}{"☆".repeat(5 - review.stars)}
+                            {"★".repeat(review.stars)}
+                            {"☆".repeat(5 - review.stars)}
                           </p>
                           <p className="text-xs text-[color:var(--text-secondary)] mt-1">
                             {new Date(review.createdAt).toLocaleDateString()}
@@ -684,7 +970,9 @@ export default function AdminDashboardPage() {
                           🗑️ Delete
                         </button>
                       </div>
-                      <p className="text-sm text-[color:var(--text-secondary)]">{review.message}</p>
+                      <p className="text-sm text-[color:var(--text-secondary)]">
+                        {review.message}
+                      </p>
                     </article>
                   ))}
               </div>
@@ -695,7 +983,9 @@ export default function AdminDashboardPage() {
         {/* Status Message */}
         {status && (
           <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-            <p className="text-sm text-[color:var(--text-secondary)]">{status}</p>
+            <p className="text-sm text-[color:var(--text-secondary)]">
+              {status}
+            </p>
           </div>
         )}
       </section>

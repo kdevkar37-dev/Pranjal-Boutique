@@ -14,6 +14,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -41,8 +42,8 @@ public class SecurityConfig {
     private String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          UserDetailsService userDetailsService,
-                          @Lazy OAuth2SuccessHandler oAuth2SuccessHandler) {
+            UserDetailsService userDetailsService,
+            @Lazy OAuth2SuccessHandler oAuth2SuccessHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
@@ -55,26 +56,32 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(RegexRequestMatcher.regexMatcher("^/api/auth(?:/.*)?$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher("^/oauth2(?:/.*)?$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET, "^/api/services(?:/.*)?$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.POST, "^/api/services/inquiries$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.POST, "^/api/services/reviews$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher("^/uploads(?:/.*)?$"))
-                    .permitAll()
-                    .requestMatchers(RegexRequestMatcher.regexMatcher("^/api/admin(?:/.*)?$"))
-                    .hasRole("ADMIN")
+                        .requestMatchers(RegexRequestMatcher.regexMatcher("^/api/auth(?:/.*)?$"))
+                        .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher("^/oauth2(?:/.*)?$"))
+                        .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET, "^/api/services(?:/.*)?$"))
+                        .permitAll()
+                        .requestMatchers(
+                                RegexRequestMatcher.regexMatcher(HttpMethod.GET, "^/api/rental-products(?:/.*)?$"))
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/site-settings")
+                        .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.POST, "^/api/services/inquiries$"))
+                        .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.POST, "^/api/services/reviews$"))
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/images/**")
+                        .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher("^/api/admin(?:/.*)?$"))
+                        .hasRole("ADMIN")
                         .anyRequest().authenticated())
-            .exceptionHandling(ex -> ex
-                .defaultAuthenticationEntryPointFor(
-                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                        RegexRequestMatcher.regexMatcher("^/api(?:/.*)?$")
-                ))
+                .exceptionHandling(ex -> ex
+                        .defaultAuthenticationEntryPointFor(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                RegexRequestMatcher.regexMatcher("^/api(?:/.*)?$")))
                 .authenticationProvider(authenticationProvider())
                 .oauth2Login(oauth2 -> oauth2.successHandler(oAuth2SuccessHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -82,12 +89,18 @@ public class SecurityConfig {
         return http.build();
     }
 
-//    @Bean
-//    public DaoAuthenticationProvider authenticationProvider() {
-//        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
-//        authProvider.setPasswordEncoder(passwordEncoder());
-//        return authProvider;
-//    }
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return web -> web.ignoring().requestMatchers("/uploads/**", "/api/images/**");
+    }
+
+    // @Bean
+    // public DaoAuthenticationProvider authenticationProvider() {
+    // DaoAuthenticationProvider authProvider = new
+    // DaoAuthenticationProvider(userDetailsService);
+    // authProvider.setPasswordEncoder(passwordEncoder());
+    // return authProvider;
+    // }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {

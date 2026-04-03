@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import { getImageUrl } from "../utils/imageUrl";
 import { getServices } from "../api/serviceApi";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const categories = [
   { key: "AARI", label: "Aari Work" },
@@ -44,7 +45,9 @@ export default function AdminServicesPage() {
     load();
   }, []);
 
-  const categoryServices = services.filter((s) => s.category === selectedCategory);
+  const categoryServices = services.filter(
+    (s) => s.category === selectedCategory,
+  );
 
   const handleEdit = (service) => {
     setEditingService(service);
@@ -54,7 +57,8 @@ export default function AdminServicesPage() {
       imageUrl: service.imageUrl,
       imageFile: null,
     });
-    setPreviewImage(service.imageUrl);
+    // Use cache-busting for images to ensure fresh load from server
+    setPreviewImage(getImageUrl(service.imageUrl, true));
     setShowForm(true);
   };
 
@@ -109,10 +113,13 @@ export default function AdminServicesPage() {
         // Delete old image if updating
         if (editingService?.imageUrl) {
           try {
-            await fetch(`${API_URL}/api/admin/images?imageUrl=${encodeURIComponent(editingService.imageUrl)}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${token}` },
-            });
+            await fetch(
+              `${API_URL}/api/admin/images?imageUrl=${encodeURIComponent(editingService.imageUrl)}`,
+              {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
           } catch (err) {
             console.error("Error deleting old image:", err);
           }
@@ -146,14 +153,19 @@ export default function AdminServicesPage() {
       setServices(data);
       setShowForm(false);
       setEditingService(null);
-      alert(editingService ? "Service updated successfully!" : "Service created successfully!");
+      alert(
+        editingService
+          ? "Service updated successfully!"
+          : "Service created successfully!",
+      );
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
   };
 
   const handleDelete = async (serviceId) => {
-    if (!window.confirm("Are you sure you want to delete this service?")) return;
+    if (!window.confirm("Are you sure you want to delete this service?"))
+      return;
 
     try {
       const token = localStorage.getItem("boutique-token");
@@ -196,7 +208,7 @@ export default function AdminServicesPage() {
             onClick={() => navigate("/admin")}
             className="rounded-full border border-[#d4af37] px-4 py-2 text-sm font-semibold text-[#d4af37] transition hover:bg-[#d4af37] hover:text-black"
           >
-            ← Back
+            Back
           </button>
         </div>
 
@@ -239,7 +251,7 @@ export default function AdminServicesPage() {
                   className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)]"
                 >
                   <img
-                    src={service.imageUrl}
+                    src={getImageUrl(service.imageUrl)}
                     alt={service.title}
                     className="h-48 w-full object-cover"
                   />
@@ -292,7 +304,10 @@ export default function AdminServicesPage() {
                     type="text"
                     value={formData.title}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, title: e.target.value }))
+                      setFormData((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
                     }
                     className="w-full rounded-lg border border-[color:var(--border)] bg-[#1a1a1a] px-4 py-2 text-white focus:border-[#d4af37] focus:outline-none"
                     required
@@ -306,7 +321,10 @@ export default function AdminServicesPage() {
                   <textarea
                     value={formData.description}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, description: e.target.value }))
+                      setFormData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
                     }
                     className="w-full rounded-lg border border-[color:var(--border)] bg-[#1a1a1a] px-4 py-2 text-white focus:border-[#d4af37] focus:outline-none"
                     rows="4"

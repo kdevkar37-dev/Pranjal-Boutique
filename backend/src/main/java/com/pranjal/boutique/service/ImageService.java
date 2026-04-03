@@ -3,6 +3,8 @@ package com.pranjal.boutique.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,13 +16,15 @@ import java.util.UUID;
 @Service
 public class ImageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ImageService.class);
+
     @Value("${app.upload.dir:uploads/images}")
     private String uploadDir;
 
     @Value("${app.upload.max-size:5242880}")
     private long maxFileSize;
 
-    private static final String[] ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "heic", "heif"};
+    private static final String[] ALLOWED_EXTENSIONS = { "jpg", "jpeg", "png", "gif", "webp", "heic", "heif" };
     private static final String[] ALLOWED_MIME_TYPES = {
             "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"
     };
@@ -41,11 +45,12 @@ public class ImageService {
         // Validate file type
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null || !isValidFile(originalFileName, file.getContentType())) {
-            throw new IllegalArgumentException("Invalid file type. Allowed types: jpg, jpeg, png, gif, webp, heic, heif");
+            throw new IllegalArgumentException(
+                    "Invalid file type. Allowed types: jpg, jpeg, png, gif, webp, heic, heif");
         }
 
         // Create upload directory if it doesn't exist
-        Path uploadPath = Paths.get(uploadDir);
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath();
         Files.createDirectories(uploadPath);
 
         // Generate unique filename
@@ -56,7 +61,13 @@ public class ImageService {
         // Save file
         Files.write(filePath, file.getBytes());
 
-        // Return relative path for storage in database
+        logger.info("Image uploaded successfully");
+        logger.info("Upload directory: {}", uploadPath.toAbsolutePath());
+        logger.info("File saved at: {}", filePath.toAbsolutePath());
+        logger.info("File exists: {}", Files.exists(filePath));
+        logger.info("Filename returned: uploads/images/{}", newFileName);
+
+        // Return the relative path that can be accessed via static resource handler
         return "uploads/images/" + newFileName;
     }
 
@@ -69,14 +80,23 @@ public class ImageService {
         }
 
         try {
-            // Extract filename from URL (handle both full paths and relative paths)
-            String fileName = extractFileName(imageUrl);
-            Path filePath = Paths.get(uploadDir, fileName);
+            // Extract filename from both old format (uploads/images/uuid.jpg) and new
+            // format (uuid.jpg)
+            String fileName = imageUrl.contains("/")
+                    ? imageUrl.substring(imageUrl.lastIndexOf('/') + 1)
+                    : imageUrl;
+
+            Path uploadPath = Paths.get(uploadDir).toAbsolutePath();
+            Path filePath = uploadPath.resolve(fileName);
 
             if (Files.exists(filePath)) {
                 Files.delete(filePath);
+                logger.info("Image deleted: {}", filePath.toAbsolutePath());
+            } else {
+                logger.warn("Image file not found for deletion: {}", filePath.toAbsolutePath());
             }
         } catch (IOException e) {
+            logger.error("Failed to delete image: {}", imageUrl, e);
             throw new RuntimeException("Failed to delete image: " + e.getMessage(), e);
         }
     }
@@ -86,7 +106,7 @@ public class ImageService {
      */
     private boolean isValidFile(String fileName, String contentType) {
         String extension = getFileExtension(fileName).toLowerCase();
-        
+
         // Check extension
         boolean extensionValid = false;
         for (String ext : ALLOWED_EXTENSIONS) {
@@ -119,14 +139,5 @@ public class ImageService {
     private String getFileExtension(String fileName) {
         int lastDot = fileName.lastIndexOf('.');
         return lastDot > 0 ? fileName.substring(lastDot + 1) : "";
-    }
-
-    /**
-     * Extract filename from image URL
-     */
-    private String extractFileName(String imageUrl) {
-        // Handle paths like "uploads/images/filename.jpg"
-        int lastSlash = imageUrl.lastIndexOf('/');
-        return lastSlash >= 0 ? imageUrl.substring(lastSlash + 1) : imageUrl;
     }
 }

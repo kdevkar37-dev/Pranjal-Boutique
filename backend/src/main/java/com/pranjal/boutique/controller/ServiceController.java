@@ -6,7 +6,6 @@ import com.pranjal.boutique.dto.ReviewRequest;
 import com.pranjal.boutique.model.BoutiqueService;
 import com.pranjal.boutique.model.Inquiry;
 import com.pranjal.boutique.model.Review;
-import com.pranjal.boutique.model.ServiceCategory;
 import com.pranjal.boutique.service.BoutiqueServiceManager;
 import com.pranjal.boutique.service.InquiryService;
 import com.pranjal.boutique.service.ReviewService;
@@ -30,15 +29,15 @@ public class ServiceController {
     private final ReviewService reviewService;
 
     public ServiceController(BoutiqueServiceManager boutiqueServiceManager,
-                             InquiryService inquiryService,
-                             ReviewService reviewService) {
+            InquiryService inquiryService,
+            ReviewService reviewService) {
         this.boutiqueServiceManager = boutiqueServiceManager;
         this.inquiryService = inquiryService;
         this.reviewService = reviewService;
     }
 
     @GetMapping
-    public List<BoutiqueService> getAll(@RequestParam(required = false) ServiceCategory category) {
+    public List<BoutiqueService> getAll(@RequestParam(required = false) String category) {
         return boutiqueServiceManager.getServices(category);
     }
 
