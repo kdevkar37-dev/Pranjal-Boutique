@@ -3,6 +3,8 @@ package com.pranjal.boutique.config;
 import com.pranjal.boutique.model.BoutiqueService;
 import com.pranjal.boutique.model.ServiceCategory;
 import com.pranjal.boutique.repository.BoutiqueServiceRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,10 +14,17 @@ import java.util.List;
 @Configuration
 public class ServiceSeedConfig {
 
+    private static final Logger logger = LoggerFactory.getLogger(ServiceSeedConfig.class);
+
     @Bean
     CommandLineRunner seedServices(BoutiqueServiceRepository boutiqueServiceRepository) {
         return args -> {
-            if (boutiqueServiceRepository.count() > 0) {
+            try {
+                if (boutiqueServiceRepository.count() > 0) {
+                    return;
+                }
+            } catch (Exception e) {
+                logger.warn("MongoDB not available during seeding. Application will continue without initial data. Error: {}", e.getMessage());
                 return;
             }
 
@@ -55,7 +64,12 @@ public class ServiceSeedConfig {
             customDesign.setDescription("Personalized bridal customization and design consultation services.");
             customDesign.setImageUrl("https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1200&q=80");
 
-            boutiqueServiceRepository.saveAll(List.of(aari, embroidery, mehendi, fabricPainting, flowerJewellery, customDesign));
+            try {
+                boutiqueServiceRepository.saveAll(List.of(aari, embroidery, mehendi, fabricPainting, flowerJewellery, customDesign));
+                logger.info("✅ Services seeded successfully");
+            } catch (Exception e) {
+                logger.warn("Failed to seed services data: {}", e.getMessage());
+            }
         };
     }
 }

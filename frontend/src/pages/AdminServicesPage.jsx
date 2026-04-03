@@ -86,7 +86,7 @@ export default function AdminServicesPage() {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("boutique-token");
       let imageUrl = formData.imageUrl;
 
       // Upload image if new one provided
@@ -156,7 +156,7 @@ export default function AdminServicesPage() {
     if (!window.confirm("Are you sure you want to delete this service?")) return;
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("boutique-token");
       const res = await fetch(`${API_URL}/api/admin/services/${serviceId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },

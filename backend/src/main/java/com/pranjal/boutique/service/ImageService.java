@@ -20,9 +20,9 @@ public class ImageService {
     @Value("${app.upload.max-size:5242880}")
     private long maxFileSize;
 
-    private static final String[] ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"};
+    private static final String[] ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "heic", "heif"};
     private static final String[] ALLOWED_MIME_TYPES = {
-            "image/jpeg", "image/png", "image/gif", "image/webp"
+            "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"
     };
 
     /**
@@ -41,7 +41,7 @@ public class ImageService {
         // Validate file type
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null || !isValidFile(originalFileName, file.getContentType())) {
-            throw new IllegalArgumentException("Invalid file type. Allowed types: jpg, jpeg, png, gif, webp");
+            throw new IllegalArgumentException("Invalid file type. Allowed types: jpg, jpeg, png, gif, webp, heic, heif");
         }
 
         // Create upload directory if it doesn't exist

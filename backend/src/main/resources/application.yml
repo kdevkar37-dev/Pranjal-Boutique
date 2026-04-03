@@ -4,7 +4,7 @@ server:
 spring:
   data:
     mongodb:
-      uri: mongodb://localhost:27017/pranjal_boutique
+      uri: mongodb://localhost:27017/boutiqueDB
   security:
     oauth2:
       client:
