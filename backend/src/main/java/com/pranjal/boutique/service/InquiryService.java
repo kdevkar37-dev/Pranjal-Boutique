@@ -4,6 +4,7 @@ import com.pranjal.boutique.dto.InquiryRequest;
 import com.pranjal.boutique.model.Inquiry;
 import com.pranjal.boutique.model.InquiryStatus;
 import com.pranjal.boutique.repository.InquiryRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -13,6 +14,9 @@ import java.util.List;
 public class InquiryService {
 
     private final InquiryRepository inquiryRepository;
+
+    @Value("${app.pagination.admin-max-items:500}")
+    private int adminMaxItems;
 
     public InquiryService(InquiryRepository inquiryRepository) {
         this.inquiryRepository = inquiryRepository;
@@ -31,7 +35,10 @@ public class InquiryService {
     }
 
     public List<Inquiry> getAll() {
-        return inquiryRepository.findAll();
+        return inquiryRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .limit(Math.max(1, adminMaxItems))
+                .toList();
     }
 
     public Inquiry updateStatus(String id, InquiryStatus status) {
@@ -48,5 +55,11 @@ public class InquiryService {
         inquiry.setRespondedAt(Instant.now());
         inquiry.setStatus(InquiryStatus.CONTACTED);
         return inquiryRepository.save(inquiry);
+    }
+
+    public void delete(String id) {
+        Inquiry inquiry = inquiryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Inquiry not found"));
+        inquiryRepository.delete(inquiry);
     }
 }

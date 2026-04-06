@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   mongodb:
@@ -32,6 +32,15 @@ services:
       ADMIN_NAME: ${ADMIN_NAME}
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://frontend:80
       OAUTH2_REDIRECT_URL: http://localhost:3000/oauth2/success
+      FILE_UPLOAD_ENABLED: ${FILE_UPLOAD_ENABLED:-true}
+      UPLOAD_PROVIDER: ${UPLOAD_PROVIDER:-cloudinary}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-boutique-services}
+      ALERTS_ENABLED: ${ALERTS_ENABLED:-false}
+      ALERTS_WEBHOOK_URL: ${ALERTS_WEBHOOK_URL}
+      ALERTS_WEBHOOK_TOKEN: ${ALERTS_WEBHOOK_TOKEN}
     ports:
       - "8080:8080"
     depends_on:

@@ -89,7 +89,9 @@ export default function AdminRentalProductsPage() {
     setStatus("Saving product...");
 
     try {
-      const token = localStorage.getItem("boutique-token");
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       let imageUrl = form.imageUrl;
 
       if (form.imageFile) {
@@ -103,7 +105,8 @@ export default function AdminRentalProductsPage() {
         });
 
         if (!uploadRes.ok) {
-          throw new Error("Image upload failed");
+          const errorData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Image upload failed");
         }
 
         const uploadData = await uploadRes.json();

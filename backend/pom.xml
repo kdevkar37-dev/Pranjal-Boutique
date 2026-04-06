@@ -57,6 +57,13 @@
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
         </dependency>
 
+        <!-- 🖼️ Cloudinary (free-tier image storage/CDN) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http44</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
         <!-- 🔐 JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

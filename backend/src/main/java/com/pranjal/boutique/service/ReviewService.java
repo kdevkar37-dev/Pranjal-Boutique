@@ -4,6 +4,7 @@ import com.pranjal.boutique.dto.ReviewAnalyticsResponse;
 import com.pranjal.boutique.dto.ReviewRequest;
 import com.pranjal.boutique.model.Review;
 import com.pranjal.boutique.repository.ReviewRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -15,6 +16,9 @@ import java.util.Map;
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
+
+    @Value("${app.pagination.admin-max-items:500}")
+    private int adminMaxItems;
 
     public ReviewService(ReviewRepository reviewRepository) {
         this.reviewRepository = reviewRepository;
@@ -30,7 +34,10 @@ public class ReviewService {
     }
 
     public List<Review> getAll() {
-        return reviewRepository.findAllByOrderByCreatedAtDesc();
+        return reviewRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .limit(Math.max(1, adminMaxItems))
+                .toList();
     }
 
     public ReviewAnalyticsResponse getAnalytics() {

@@ -23,7 +23,11 @@ export default function LoginPage() {
     try {
       const payload =
         mode === "register"
-          ? await register({ name: form.name, email: form.email, password: form.password })
+          ? await register({
+              name: form.name,
+              email: form.email,
+              password: form.password,
+            })
           : await login({ email: form.email, password: form.password });
       setAuth(payload);
       setForm({ name: "", email: "", password: "" }); // Clear form after successful login
@@ -38,12 +42,9 @@ export default function LoginPage() {
   return (
     <PageTransition>
       <section className="mx-auto max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
-        <h2 className="font-heading text-4xl">{mode === "login" ? "Welcome Back" : "Create Account"}</h2>
-        {mode === "login" && (
-          <p className="mt-2 rounded-lg border border-[#3a3a3a] bg-[#121212] px-3 py-2 text-xs text-gray-300">
-            Admin login: admin@pranjalboutique.com / Admin@123
-          </p>
-        )}
+        <h2 className="font-heading text-4xl">
+          {mode === "login" ? "Welcome Back" : "Create Account"}
+        </h2>
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           {mode === "register" && (
             <input
@@ -81,10 +82,16 @@ export default function LoginPage() {
             className="ml-3 text-sm text-[color:var(--text-secondary)]"
             onClick={() => setMode(mode === "login" ? "register" : "login")}
           >
-            {mode === "login" ? "Need an account? Register" : "Already registered? Login"}
+            {mode === "login"
+              ? "Need an account? Register"
+              : "Already registered? Login"}
           </button>
         </form>
-        {status && <p className="mt-3 text-sm text-[color:var(--text-secondary)]">{status}</p>}
+        {status && (
+          <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
+            {status}
+          </p>
+        )}
       </section>
     </PageTransition>
   );

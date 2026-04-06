@@ -8,13 +8,19 @@ const USER_KEY = "boutique-user";
 const LANGUAGE_KEY = "boutique-language";
 
 export function AppProvider({ children }) {
-  const [theme, setTheme] = useState(localStorage.getItem(THEME_KEY) || "royal");
-  const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || "");
+  const [theme, setTheme] = useState(
+    localStorage.getItem(THEME_KEY) || "royal",
+  );
+  const [token, setToken] = useState(
+    sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || "",
+  );
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   });
-  const [language, setLanguage] = useState(localStorage.getItem(LANGUAGE_KEY) || "en");
+  const [language, setLanguage] = useState(
+    localStorage.getItem(LANGUAGE_KEY) || "en",
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -23,11 +29,23 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
+      localStorage.removeItem(TOKEN_KEY);
     } else {
+      sessionStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(TOKEN_KEY);
     }
   }, [token]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setToken("");
+      setUser(null);
+    };
+
+    window.addEventListener("auth:logout", handleLogout);
+    return () => window.removeEventListener("auth:logout", handleLogout);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -64,7 +82,7 @@ export function AppProvider({ children }) {
         setUser(null);
       },
     }),
-    [theme, language, token, user]
+    [theme, language, token, user],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

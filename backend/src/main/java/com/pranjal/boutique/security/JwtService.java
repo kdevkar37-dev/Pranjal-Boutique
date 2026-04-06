@@ -57,6 +57,10 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
@@ -71,6 +75,9 @@ public class JwtService {
             keyBytes = Decoders.BASE64.decode(jwtSecret);
         } catch (IllegalArgumentException ex) {
             keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        }
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT secret must be at least 256 bits (32 bytes)");
         }
         return Keys.hmacShaKeyFor(keyBytes);
     }

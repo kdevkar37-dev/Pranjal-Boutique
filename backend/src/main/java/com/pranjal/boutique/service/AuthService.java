@@ -23,9 +23,9 @@ public class AuthService {
 	private final JwtService jwtService;
 
 	public AuthService(UserRepository userRepository,
-					   PasswordEncoder passwordEncoder,
-					   AuthenticationManager authenticationManager,
-					   JwtService jwtService) {
+			PasswordEncoder passwordEncoder,
+			AuthenticationManager authenticationManager,
+			JwtService jwtService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.authenticationManager = authenticationManager;
@@ -33,13 +33,15 @@ public class AuthService {
 	}
 
 	public AuthResponse register(RegisterRequest request) {
-		if (userRepository.existsByEmail(request.email())) {
+		String normalizedEmail = request.email().trim().toLowerCase();
+
+		if (userRepository.existsByEmail(normalizedEmail)) {
 			throw new IllegalArgumentException("Email already registered");
 		}
 
 		User user = new User();
 		user.setName(request.name());
-		user.setEmail(request.email());
+		user.setEmail(normalizedEmail);
 		user.setPassword(passwordEncoder.encode(request.password()));
 		user.setRole(Role.ROLE_USER);
 		user.setProvider("local");
@@ -49,21 +51,23 @@ public class AuthService {
 	}
 
 	public AuthResponse login(LoginRequest request) {
-		authenticationManager.authenticate(
-				new UsernamePasswordAuthenticationToken(request.email(), request.password())
-		);
+		String normalizedEmail = request.email().trim().toLowerCase();
 
-		User user = userRepository.findByEmail(request.email())
+		authenticationManager.authenticate(
+				new UsernamePasswordAuthenticationToken(normalizedEmail, request.password()));
+
+		User user = userRepository.findByEmail(normalizedEmail)
 				.orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
 		return createAuthResponse(user);
 	}
 
 	public AuthResponse processOAuth2User(Map<String, Object> attributes) {
-		String email = (String) attributes.get("email");
-		if (email == null || email.isBlank()) {
+		String emailValue = (String) attributes.get("email");
+		if (emailValue == null || emailValue.isBlank()) {
 			throw new IllegalArgumentException("Email not found from OAuth provider");
 		}
+		final String email = emailValue.trim().toLowerCase();
 
 		User user = userRepository.findByEmail(email).orElseGet(() -> {
 			User newUser = new User();
@@ -91,7 +95,12 @@ public class AuthService {
 				user.getName(),
 				user.getEmail(),
 				user.getRole(),
-				user.getProfilePic()
-		);
+				user.getProfilePic());
+	}
+
+	public AuthResponse issueAccessTokenForEmail(String email) {
+		User user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new IllegalArgumentException("User not found"));
+		return createAuthResponse(user);
 	}
 }

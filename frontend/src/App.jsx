@@ -11,7 +11,6 @@ const RentalPage = lazy(() => import("./pages/RentalPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const ClassesPage = lazy(() => import("./pages/ClassesPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
-const EnquiryTrackingPage = lazy(() => import("./pages/EnquiryTrackingPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const OAuth2SuccessPage = lazy(() => import("./pages/OAuth2SuccessPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
@@ -53,10 +52,12 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/gallery" element={<GalleryPage />} />
               <Route path="/rental" element={<RentalPage />} />
-              <Route path="/service/:category" element={<ServiceDetailPage />} />
+              <Route
+                path="/service/:category"
+                element={<ServiceDetailPage />}
+              />
               <Route path="/classes" element={<ClassesPage />} />
               <Route path="/contact" element={<ContactPage />} />
-              <Route path="/track-enquiry" element={<EnquiryTrackingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/oauth2/success" element={<OAuth2SuccessPage />} />
               <Route

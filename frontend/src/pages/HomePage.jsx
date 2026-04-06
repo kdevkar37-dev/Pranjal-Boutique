@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -188,6 +188,9 @@ export default function HomePage() {
     message: "",
   });
   const [enquiryStatus, setEnquiryStatus] = useState("");
+  const [mobileGalleryIndexByCategory, setMobileGalleryIndexByCategory] =
+    useState({});
+  const mobileTouchStartXByCategoryRef = useRef({});
   const [siteSettings, setSiteSettings] = useState({
     contactNumbers: ["+91 98765 43210", "+91 99887 76655"],
     location: "Pune, Maharashtra, India",
@@ -342,14 +345,7 @@ export default function HomePage() {
     }, {});
     return Object.entries(groupedGallery);
   }, [displayedGallery]);
-  const fallbackWhatsapp =
-    import.meta.env.VITE_WHATSAPP_NUMBER || "919999999999";
-  const whatsappNumber = useMemo(
-    () =>
-      (siteSettings.contactNumbers?.[0] || "").replace(/\D/g, "") ||
-      fallbackWhatsapp,
-    [siteSettings.contactNumbers, fallbackWhatsapp],
-  );
+  const whatsappNumber = "919373463181";
   const whatsappLink = useMemo(
     () => `https://wa.me/${whatsappNumber}`,
     [whatsappNumber],
@@ -373,6 +369,89 @@ export default function HomePage() {
       element.scrollIntoView({ behavior: "smooth" });
     }
   };
+
+  const getMobileCategoryIndex = (category, imagesLength) => {
+    if (!imagesLength) {
+      return 0;
+    }
+    return (mobileGalleryIndexByCategory[category] || 0) % imagesLength;
+  };
+
+  const goToPreviousMobileImage = (category, imagesLength) => {
+    if (!imagesLength) {
+      return;
+    }
+    setMobileGalleryIndexByCategory((previous) => ({
+      ...previous,
+      [category]: ((previous[category] || 0) - 1 + imagesLength) % imagesLength,
+    }));
+  };
+
+  const goToNextMobileImage = (category, imagesLength) => {
+    if (!imagesLength) {
+      return;
+    }
+    setMobileGalleryIndexByCategory((previous) => ({
+      ...previous,
+      [category]: ((previous[category] || 0) + 1) % imagesLength,
+    }));
+  };
+
+  const goToMobileImage = (category, index) => {
+    setMobileGalleryIndexByCategory((previous) => ({
+      ...previous,
+      [category]: index,
+    }));
+  };
+
+  const handleMobileGalleryTouchStart = (category, event) => {
+    mobileTouchStartXByCategoryRef.current[category] =
+      event.touches?.[0]?.clientX ?? null;
+  };
+
+  const handleMobileGalleryTouchEnd = (category, imagesLength, event) => {
+    const touchStartX = mobileTouchStartXByCategoryRef.current[category];
+    const touchEndX = event.changedTouches?.[0]?.clientX ?? null;
+    mobileTouchStartXByCategoryRef.current[category] = null;
+
+    if (touchStartX === null || touchEndX === null || imagesLength <= 1) {
+      return;
+    }
+
+    const swipeThreshold = 40;
+    const deltaX = touchStartX - touchEndX;
+
+    if (Math.abs(deltaX) < swipeThreshold) {
+      return;
+    }
+
+    if (deltaX > 0) {
+      goToNextMobileImage(category, imagesLength);
+      return;
+    }
+
+    goToPreviousMobileImage(category, imagesLength);
+  };
+
+  useEffect(() => {
+    const autoSlideIntervalMs = 3500;
+    const intervalId = window.setInterval(() => {
+      setMobileGalleryIndexByCategory((previous) => {
+        const next = { ...previous };
+        groupedGalleryEntries.forEach(([category, images]) => {
+          if (images.length <= 1) {
+            return;
+          }
+          next[category] = ((next[category] || 0) + 1) % images.length;
+        });
+        return next;
+      });
+    }, autoSlideIntervalMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [groupedGalleryEntries]);
 
   async function handleReviewSubmit(event) {
     event.preventDefault();
@@ -427,6 +506,7 @@ export default function HomePage() {
 
   return (
     <PageTransition>
+      <div className="overflow-x-hidden">
       {/* HERO SECTION */}
       <section
         id="hero"
@@ -538,7 +618,7 @@ export default function HomePage() {
                 onClick={() => handleServiceClick(service.title)}
                 data-aos="fade-up"
                 data-aos-delay={index * 100}
-                className="group rounded-2xl border border-[#3a3a3a] bg-gradient-to-br from-[#252525] to-[#1a1a1a] p-8 transition duration-300 hover:-translate-y-2 hover:border-[#d4af37] hover:shadow-2xl cursor-pointer text-left"
+                className="group rounded-2xl border border-[#3a3a3a] bg-gradient-to-br from-[#252525] to-[#1a1a1a] p-8 transition duration-300 hover:-translate-y-2 hover:border-[#d4af37] hover:shadow-2xl cursor-pointer text-center md:text-left"
               >
                 <div className="mb-4 text-4xl">{service.icon}</div>
                 <h3 className="mb-3 text-xl font-semibold text-[#d4af37]">
@@ -568,11 +648,75 @@ export default function HomePage() {
 
           <div className="space-y-10">
             {groupedGalleryEntries.map(([category, images], groupIndex) => (
-              <div key={category}>
+              <div key={category} className="text-center md:text-left">
                 <h3 className="mb-4 text-xl font-semibold uppercase tracking-[0.15em] text-[#d4af37]">
                   {category}
                 </h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                <div className="md:hidden">
+                  {images.length > 0 && (
+                    <>
+                      <figure
+                        data-aos="zoom-in"
+                        data-aos-delay={groupIndex * 100}
+                        className="group relative h-80 overflow-hidden rounded-2xl border border-[#3a3a3a]"
+                        onTouchStart={(event) =>
+                          handleMobileGalleryTouchStart(category, event)
+                        }
+                        onTouchEnd={(event) =>
+                          handleMobileGalleryTouchEnd(
+                            category,
+                            images.length,
+                            event,
+                          )
+                        }
+                      >
+                        <img
+                          src={getImageUrl(
+                            images[getMobileCategoryIndex(category, images.length)]
+                              .src,
+                          )}
+                          alt={
+                            images[getMobileCategoryIndex(category, images.length)]
+                              .title
+                          }
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+                        <figcaption className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                          <span className="text-sm font-semibold tracking-wide text-[#d4af37]">
+                            {
+                              images[
+                                getMobileCategoryIndex(category, images.length)
+                              ].title
+                            }
+                          </span>
+                        </figcaption>
+                      </figure>
+
+                      <div className="mt-3 flex items-center justify-center gap-2">
+                        {images.map((image, index) => (
+                          <button
+                            key={`${category}-dot-${image.src}-${index}`}
+                            type="button"
+                            onClick={() => goToMobileImage(category, index)}
+                            className={`h-2.5 rounded-full transition ${
+                              index ===
+                              getMobileCategoryIndex(category, images.length)
+                                ? "w-8 bg-[#d4af37]"
+                                : "w-2.5 bg-[#3a3a3a]"
+                            }`}
+                            aria-label={`Show image ${index + 1} in ${category}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="hidden gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
                   {images.map((image, index) => (
                     <figure
                       key={`${category}-${image.src}-${index}`}
@@ -609,7 +753,7 @@ export default function HomePage() {
       >
         <div className="mx-auto max-w-6xl">
           <div className="grid gap-12 md:grid-cols-2">
-            <div data-aos="fade-right">
+            <div data-aos="fade-right" className="text-center md:text-left">
               <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#d4af37]">
                 Contact
               </p>
@@ -665,12 +809,12 @@ export default function HomePage() {
                 </a>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
                 <a
                   href={whatsappLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-semibold text-white transition hover:-translate-y-1 hover:shadow-lg"
+                  className="hidden items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-semibold text-white transition hover:-translate-y-1 hover:shadow-lg md:inline-flex"
                 >
                   <img
                     src="/whatsapp-logo.png"
@@ -714,7 +858,7 @@ export default function HomePage() {
 
             <form
               data-aos="fade-left"
-              className="space-y-4"
+              className="space-y-4 text-center md:text-left"
               onSubmit={handleEnquirySubmit}
             >
               <div>
@@ -995,6 +1139,7 @@ export default function HomePage() {
         <p>&copy; 2026 Pranjal's Boutique. All rights reserved.</p>
         <p className="mt-2 text-sm">Crafted with elegance for modern brides.</p>
       </footer>
+      </div>
     </PageTransition>
   );
 }

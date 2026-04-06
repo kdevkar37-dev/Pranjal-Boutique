@@ -27,7 +27,12 @@ public class GlobalExceptionHandler {
 
         return Map.of(
                 "error", "Validation failed",
-                "details", errors
-        );
+                "details", errors);
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Map<String, String> handleUnknown(Exception ex) {
+        return Map.of("error", "An unexpected error occurred");
     }
 }

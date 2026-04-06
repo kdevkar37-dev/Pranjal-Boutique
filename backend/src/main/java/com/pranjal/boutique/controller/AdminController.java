@@ -124,6 +124,16 @@ public class AdminController {
         return inquiryService.respondToInquiry(id, request.getAdminResponse());
     }
 
+    @DeleteMapping("/inquiries/{id}")
+    public ResponseEntity<Map<String, String>> deleteInquiry(@PathVariable String id) {
+        try {
+            inquiryService.delete(id);
+            return ResponseEntity.ok(Map.of("message", "Inquiry deleted successfully"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/reviews")
     public List<Review> getReviews() {
         return reviewService.getAll();

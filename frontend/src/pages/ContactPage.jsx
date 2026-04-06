@@ -131,13 +131,7 @@ export default function ContactPage() {
     };
   }, []);
 
-  const primaryPhone = (siteSettings.contactNumbers?.[0] || "").replace(
-    /\D/g,
-    "",
-  );
-  const whatsappLink = primaryPhone
-    ? `https://wa.me/${primaryPhone}`
-    : "https://wa.me/919999999999";
+  const whatsappLink = "https://wa.me/919373463181";
   const instagramLink = "https://www.instagram.com/pranjalsdesigner/";
   const mapsLink =
     siteSettings.googleMapsUrl ||

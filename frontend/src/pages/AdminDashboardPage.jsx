@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
 import { getImageUrl } from "../utils/imageUrl";
 import {
+  deleteInquiry,
   getInquiries,
   getReviewAnalytics,
   getReviews,
@@ -10,7 +11,6 @@ import {
   getServiceCategoryCounts,
   getSiteSettings,
   updateInquiryStatus,
-  respondToInquiry,
   deleteReview,
   updateSiteSettings,
 } from "../api/serviceApi";
@@ -48,8 +48,6 @@ export default function AdminDashboardPage() {
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedInquiryStatus, setSelectedInquiryStatus] = useState("ALL");
-  const [inquiryResponses, setInquiryResponses] = useState({});
-  const [expandedInquiry, setExpandedInquiry] = useState(null);
   const [categoryRecords, setCategoryRecords] = useState([]);
   const [siteSettingsForm, setSiteSettingsForm] = useState({
     contactNumbersText: "+91 98765 43210\n+91 99887 76655",
@@ -107,7 +105,9 @@ export default function AdminDashboardPage() {
         throw new Error("Category is required");
       }
 
-      const token = localStorage.getItem("boutique-token");
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       let imageUrl = serviceForm.imageUrl;
 
       if (serviceForm.imageFile) {
@@ -120,7 +120,10 @@ export default function AdminDashboardPage() {
           body: imageFormData,
         });
 
-        if (!uploadRes.ok) throw new Error("Image upload failed");
+        if (!uploadRes.ok) {
+          const errorData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Image upload failed");
+        }
         const uploadData = await uploadRes.json();
         imageUrl = uploadData.imageUrl;
       }
@@ -195,7 +198,9 @@ export default function AdminDashboardPage() {
   async function handleDeleteService(id) {
     if (!window.confirm("Delete this service?")) return;
     try {
-      const token = localStorage.getItem("boutique-token");
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       const res = await fetch(`${API_URL}/api/admin/services/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -218,23 +223,6 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleRespondToInquiry(inquiryId) {
-    const response = inquiryResponses[inquiryId]?.trim();
-    if (!response) {
-      setStatus("⚠️ Please enter a response message");
-      return;
-    }
-    try {
-      await respondToInquiry(inquiryId, response);
-      setInquiryResponses({ ...inquiryResponses, [inquiryId]: "" });
-      setExpandedInquiry(null);
-      await refresh();
-      setStatus("✅ Response sent to customer");
-    } catch (err) {
-      setStatus(`❌ Failed to send response: ${err.message}`);
-    }
-  }
-
   async function handleDeleteReview(reviewId) {
     if (!window.confirm("Are you sure you want to delete this review?")) {
       return;
@@ -245,6 +233,19 @@ export default function AdminDashboardPage() {
       setStatus("✅ Review deleted successfully");
     } catch (err) {
       setStatus(`❌ Failed to delete review: ${err.message}`);
+    }
+  }
+
+  async function handleDeleteInquiry(inquiryId) {
+    if (!window.confirm("Delete this enquiry permanently?")) {
+      return;
+    }
+    try {
+      await deleteInquiry(inquiryId);
+      await refresh();
+      setStatus("✅ Enquiry deleted successfully");
+    } catch (err) {
+      setStatus(`❌ Failed to delete enquiry: ${err.message}`);
     }
   }
 
@@ -776,55 +777,6 @@ export default function AdminDashboardPage() {
                                 {inquiry.message}
                               </p>
                             </div>
-
-                            {/* Admin Response */}
-                            {inquiry.adminResponse && (
-                              <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4">
-                                <p className="text-xs font-semibold text-green-400 mb-2">
-                                  ✅ Your Response:
-                                </p>
-                                <p className="text-sm text-[color:var(--text-secondary)]">
-                                  {inquiry.adminResponse}
-                                </p>
-                                {inquiry.respondedAt && (
-                                  <p className="text-xs text-[color:var(--text-secondary)] mt-2">
-                                    Responded:{" "}
-                                    {new Date(
-                                      inquiry.respondedAt,
-                                    ).toLocaleDateString()}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Response Input */}
-                            {!inquiry.adminResponse && (
-                              <div className="rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 p-4 space-y-3">
-                                <label className="block text-xs font-semibold text-[#d4af37]">
-                                  💬 Send Response to Customer
-                                </label>
-                                <textarea
-                                  value={inquiryResponses[inquiry.id] || ""}
-                                  onChange={(e) =>
-                                    setInquiryResponses({
-                                      ...inquiryResponses,
-                                      [inquiry.id]: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Type your response here..."
-                                  className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text-primary)] placeholder-[color:var(--text-secondary)]"
-                                  rows="3"
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleRespondToInquiry(inquiry.id)
-                                  }
-                                  className="w-full rounded-full bg-[#d4af37] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#e5c158]"
-                                >
-                                  📤 Send Response
-                                </button>
-                              </div>
-                            )}
                           </div>
 
                           {/* Action Buttons */}
@@ -859,6 +811,12 @@ export default function AdminDashboardPage() {
                                 ↻ Reopen
                               </button>
                             )}
+                            <button
+                              onClick={() => handleDeleteInquiry(inquiry.id)}
+                              className="rounded-full bg-red-600 px-6 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                            >
+                              🗑 Delete
+                            </button>
                           </div>
                         </div>
                       </div>

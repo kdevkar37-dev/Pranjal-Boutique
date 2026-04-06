@@ -9,7 +9,6 @@ const links = [
   { to: "/gallery", label: "Gallery" },
   { to: "/classes", label: "Classes" },
   { to: "/contact", label: "Contact" },
-  { to: "/track-enquiry", label: "Track Enquiry" },
 ];
 
 export default function Header() {
@@ -25,17 +24,14 @@ export default function Header() {
   }, [location.pathname]);
 
   async function handleLogout() {
-    // Clear local state first
-    contextLogout();
-
-    // Then call the logout API (non-blocking)
+    // Call logout API first so the current access token can be revoked server-side.
     try {
       await logout();
-    } catch (err) {
-      console.error("Logout endpoint call failed:", err);
+    } catch {
+      // Ignore network failures and continue with local logout.
     }
 
-    // Finally navigate
+    contextLogout();
     navigate("/", { replace: true });
   }
 

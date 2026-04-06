@@ -100,6 +100,10 @@ export async function updateInquiryStatus(id, status) {
   return data;
 }
 
+export async function deleteInquiry(id) {
+  await api.delete(`/admin/inquiries/${id}`);
+}
+
 export async function respondToInquiry(id, adminResponse) {
   const { data } = await api.put(`/admin/inquiries/${id}/respond`, {
     adminResponse,

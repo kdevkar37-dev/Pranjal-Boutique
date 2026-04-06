@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getImageUrl } from "../utils/imageUrl";
 
-const whatsappNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "919999999999";
+const whatsappNumber = "919373463181";
 
 function ServiceCard({
   service,

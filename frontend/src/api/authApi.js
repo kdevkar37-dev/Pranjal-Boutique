@@ -18,9 +18,7 @@ export async function getCurrentUser() {
 export async function logout() {
   try {
     await api.post("/auth/logout");
-    console.log("Logout successful");
-  } catch (error) {
-    console.error("Logout error:", error);
+  } catch {
     // Logout is client-side, so we don't throw errors even if request fails
   }
 }

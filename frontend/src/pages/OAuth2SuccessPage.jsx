@@ -16,12 +16,16 @@ export default function OAuth2SuccessPage() {
         return;
       }
 
-      localStorage.setItem("boutique-token", token);
+      sessionStorage.setItem("boutique-token", token);
+      localStorage.removeItem("boutique-token");
       try {
         const profile = await getCurrentUser();
         login({ ...profile, token });
-        navigate(profile.role === "ROLE_ADMIN" ? "/admin" : "/", { replace: true });
+        navigate(profile.role === "ROLE_ADMIN" ? "/admin" : "/", {
+          replace: true,
+        });
       } catch {
+        sessionStorage.removeItem("boutique-token");
         localStorage.removeItem("boutique-token");
         navigate("/login", { replace: true });
       }
@@ -30,5 +34,9 @@ export default function OAuth2SuccessPage() {
     finalizeLogin();
   }, [params, navigate, login]);
 
-  return <p className="text-sm text-[color:var(--text-secondary)]">Signing you in with Google...</p>;
+  return (
+    <p className="text-sm text-[color:var(--text-secondary)]">
+      Signing you in with Google...
+    </p>
+  );
 }

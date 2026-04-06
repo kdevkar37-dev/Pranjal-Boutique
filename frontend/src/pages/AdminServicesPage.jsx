@@ -90,7 +90,9 @@ export default function AdminServicesPage() {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem("boutique-token");
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       let imageUrl = formData.imageUrl;
 
       // Upload image if new one provided
@@ -106,7 +108,10 @@ export default function AdminServicesPage() {
           body: imageFormData,
         });
 
-        if (!uploadRes.ok) throw new Error("Image upload failed");
+        if (!uploadRes.ok) {
+          const errorData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Image upload failed");
+        }
         const uploadData = await uploadRes.json();
         imageUrl = uploadData.imageUrl;
 
@@ -168,7 +173,9 @@ export default function AdminServicesPage() {
       return;
 
     try {
-      const token = localStorage.getItem("boutique-token");
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       const res = await fetch(`${API_URL}/api/admin/services/${serviceId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
