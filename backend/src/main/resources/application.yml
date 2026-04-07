@@ -35,3 +35,10 @@ app:
   upload:
     dir: ${UPLOAD_DIR:uploads/images}
     max-size: ${UPLOAD_MAX_SIZE:5242880}
+    file-upload-enabled: ${FILE_UPLOAD_ENABLED:true}
+    provider: ${UPLOAD_PROVIDER:local}
+    cloudinary:
+      cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+      api-key: ${CLOUDINARY_API_KEY:}
+      api-secret: ${CLOUDINARY_API_SECRET:}
+      folder: ${CLOUDINARY_FOLDER:boutique-services}
