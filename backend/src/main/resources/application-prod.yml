@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   servlet:
     context-path: /
   shutdown: graceful
@@ -15,11 +15,14 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: ${GOOGLE_CLIENT_ID:none}
+            client-secret: ${GOOGLE_CLIENT_SECRET:none}
             scope:
               - profile
               - email
+  autoconfigure:
+    exclude:
+      - ${DISABLE_OAUTH2:}
 
 app:
   jwt:
@@ -32,7 +35,7 @@ app:
     refresh-cookie-name: ${REFRESH_COOKIE_NAME:boutique_refresh}
     refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
     refresh-cookie-same-site: ${REFRESH_COOKIE_SAME_SITE:Strict}
-    require-https: ${REQUIRE_HTTPS:true}
+    require-https: ${REQUIRE_HTTPS:false}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-max-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:15}
@@ -41,7 +44,7 @@ app:
   pagination:
     admin-max-items: ${ADMIN_MAX_ITEMS:500}
   oauth2:
-    redirect-url: ${OAUTH2_REDIRECT_URL}
+    redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:3000/oauth2/success}
   admin:
     email: ${ADMIN_EMAIL}
     password: ${ADMIN_PASSWORD}
@@ -52,9 +55,9 @@ app:
     file-upload-enabled: ${FILE_UPLOAD_ENABLED:true}
     provider: ${UPLOAD_PROVIDER:cloudinary}
     cloudinary:
-      cloud-name: ${CLOUDINARY_CLOUD_NAME}
-      api-key: ${CLOUDINARY_API_KEY}
-      api-secret: ${CLOUDINARY_API_SECRET}
+      cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+      api-key: ${CLOUDINARY_API_KEY:}
+      api-secret: ${CLOUDINARY_API_SECRET:}
       folder: ${CLOUDINARY_FOLDER:boutique-services}
 
   alerts:
