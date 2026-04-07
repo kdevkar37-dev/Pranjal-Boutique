@@ -61,6 +61,16 @@ const fallbackServices = [
   },
 ];
 
+function toArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return [];
+  }
+  return [value];
+}
+
 export default function GalleryPage() {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
@@ -74,7 +84,7 @@ export default function GalleryPage() {
       try {
         const data = await getServices();
         if (mounted) {
-          setServices(data);
+          setServices(toArray(data));
         }
       } catch (err) {
         if (mounted) {
