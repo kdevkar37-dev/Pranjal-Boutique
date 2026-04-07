@@ -8,15 +8,7 @@
  * 3. Just filename: "{uuid}.jpg" (legacy)
  */
 
-const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  ""
-).replace(/\/$/, "");
-
-const API_HOST = API_BASE_URL.endsWith("/api")
-  ? API_BASE_URL.slice(0, -4)
-  : API_BASE_URL;
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 /**
  * Convert image path from database to complete displayable URL
@@ -43,7 +35,7 @@ export const getImageUrl = (imageUrl, bust = false) => {
   // Case 2: Complete path - just prepend API_URL
   if (imageUrl.includes("uploads/images")) {
     const normalizedPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
-    const fullUrl = `${API_HOST}${normalizedPath}`;
+    const fullUrl = `${API_URL}${normalizedPath}`;
     return bust ? `${fullUrl}?t=${Date.now()}` : fullUrl;
   }
 
@@ -52,7 +44,7 @@ export const getImageUrl = (imageUrl, bust = false) => {
   const normalizedFilename = imageUrl.startsWith("/")
     ? imageUrl.substring(1)
     : imageUrl;
-  const fullUrl = `${API_HOST}/uploads/images/${normalizedFilename}`;
+  const fullUrl = `${API_URL}/uploads/images/${normalizedFilename}`;
   return bust ? `${fullUrl}?t=${Date.now()}` : fullUrl;
 };
 
