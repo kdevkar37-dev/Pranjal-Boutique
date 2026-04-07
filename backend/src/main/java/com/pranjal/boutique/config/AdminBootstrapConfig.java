@@ -14,18 +14,24 @@ public class AdminBootstrapConfig {
 
     @Bean
     CommandLineRunner ensureAdminUser(UserRepository userRepository,
-                                      PasswordEncoder passwordEncoder,
-                                      @Value("${app.admin.email}") String email,
-                                      @Value("${app.admin.password}") String password,
-                                      @Value("${app.admin.name}") String name) {
+            PasswordEncoder passwordEncoder,
+            @Value("${app.admin.email}") String email,
+            @Value("${app.admin.password}") String password,
+            @Value("${app.admin.name}") String name) {
         return args -> {
-            if (userRepository.existsByEmail(email)) {
+            String normalizedEmail = email == null ? "" : email.trim().toLowerCase();
+
+            if (normalizedEmail.isEmpty()) {
+                return;
+            }
+
+            if (userRepository.existsByEmail(normalizedEmail)) {
                 return;
             }
 
             User admin = new User();
             admin.setName(name);
-            admin.setEmail(email);
+            admin.setEmail(normalizedEmail);
             admin.setPassword(passwordEncoder.encode(password));
             admin.setRole(Role.ROLE_ADMIN);
             admin.setProvider("local");

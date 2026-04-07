@@ -134,18 +134,18 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         List<String> sanitizedOrigins = Arrays.stream((allowedOrigins == null ? "" : allowedOrigins).split(","))
-            .map(String::trim)
-            .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
-            .filter(origin -> !origin.isEmpty())
-            .collect(Collectors.toList());
+                .map(String::trim)
+                .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
+                .filter(origin -> !origin.isEmpty())
+                .collect(Collectors.toList());
 
         // Safe defaults prevent production lockout when env var is missing/malformed.
         if (sanitizedOrigins.isEmpty()) {
             sanitizedOrigins = List.of(
-                "https://pranjal-boutique.vercel.app",
-                "https://*.vercel.app",
-                "http://localhost:3000",
-                "http://localhost:5173");
+                    "https://pranjal-boutique.vercel.app",
+                    "https://*.vercel.app",
+                    "http://localhost:3000",
+                    "http://localhost:5173");
         }
 
         configuration.setAllowedOriginPatterns(sanitizedOrigins);
