@@ -548,7 +548,7 @@ export default function HomePage() {
                 src={ownerImageUrl}
                 alt="Owner of Pranjal's Boutique"
                 loading="eager"
-                fetchPriority="high"
+                fetchpriority="high"
                 decoding="async"
                 onError={(event) => {
                   event.currentTarget.onerror = null;

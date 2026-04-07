@@ -2,6 +2,20 @@ import axios from "axios";
 
 const TOKEN_KEY = "boutique-token";
 
+function resolveApiBaseUrl() {
+  const baseFromEnv = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  if (baseFromEnv) {
+    return baseFromEnv.replace(/\/$/, "");
+  }
+
+  const apiHost = (import.meta.env.VITE_API_URL || "").trim();
+  if (apiHost) {
+    return `${apiHost.replace(/\/$/, "")}/api`;
+  }
+
+  return "/api";
+}
+
 function getStoredToken() {
   return (
     sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || ""
@@ -20,7 +34,7 @@ function clearStoredToken() {
 }
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  baseURL: resolveApiBaseUrl(),
   timeout: 15000,
   withCredentials: true,
 });
