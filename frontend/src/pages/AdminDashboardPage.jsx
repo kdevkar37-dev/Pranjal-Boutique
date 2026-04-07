@@ -15,7 +15,20 @@ import {
   updateSiteSettings,
 } from "../api/serviceApi";
 
-const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.VITE_API_URL
+    ? `${(import.meta.env.VITE_API_URL || "").replace(/\/$/, "")}/api`
+    : "/api")
+).replace(/\/$/, "");
+
+function normalizeCategoryInput(value) {
+  return (value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^A-Z_]/g, "");
+}
 
 const initialService = {
   title: "",
@@ -100,7 +113,7 @@ export default function AdminDashboardPage() {
     event.preventDefault();
     setStatus("Uploading service...");
     try {
-      const categoryValue = selectedCategory.trim();
+      const categoryValue = normalizeCategoryInput(selectedCategory);
       if (!categoryValue) {
         throw new Error("Category is required");
       }
@@ -114,7 +127,7 @@ export default function AdminDashboardPage() {
         const imageFormData = new FormData();
         imageFormData.append("file", serviceForm.imageFile);
 
-        const uploadRes = await fetch(`${API_URL}/api/admin/images/upload`, {
+        const uploadRes = await fetch(`${API_BASE_URL}/admin/images/upload`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: imageFormData,
@@ -133,8 +146,8 @@ export default function AdminDashboardPage() {
       }
 
       const serviceUrl = editingService
-        ? `${API_URL}/api/admin/services/${editingService.id}`
-        : `${API_URL}/api/admin/services`;
+        ? `${API_BASE_URL}/admin/services/${editingService.id}`
+        : `${API_BASE_URL}/admin/services`;
 
       const method = editingService ? "PUT" : "POST";
       const serviceRes = await fetch(serviceUrl, {
@@ -151,7 +164,13 @@ export default function AdminDashboardPage() {
         }),
       });
 
-      if (!serviceRes.ok) throw new Error("Service save failed");
+      if (!serviceRes.ok) {
+        const errorData = await serviceRes.json().catch(() => ({}));
+        const details = errorData?.details
+          ? Object.values(errorData.details).join(", ")
+          : "";
+        throw new Error(errorData.error || details || "Service save failed");
+      }
 
       await refresh();
       setServiceForm(initialService);
@@ -201,7 +220,7 @@ export default function AdminDashboardPage() {
       const token =
         sessionStorage.getItem("boutique-token") ||
         localStorage.getItem("boutique-token");
-      const res = await fetch(`${API_URL}/api/admin/services/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/services/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
