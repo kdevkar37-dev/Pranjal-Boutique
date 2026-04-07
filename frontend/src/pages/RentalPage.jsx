@@ -5,6 +5,16 @@ import { getImageUrl } from "../utils/imageUrl";
 
 const sections = ["RENTAL", "CUSTOMIZATION"];
 
+function toArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return [];
+  }
+  return [value];
+}
+
 export default function RentalPage() {
   const [products, setProducts] = useState([]);
   const [section, setSection] = useState("RENTAL");
@@ -31,7 +41,7 @@ export default function RentalPage() {
         if (!mounted) {
           return;
         }
-        setProducts(data || []);
+        setProducts(toArray(data));
       } catch (err) {
         if (!mounted) {
           return;
