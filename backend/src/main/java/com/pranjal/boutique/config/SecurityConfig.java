@@ -133,15 +133,27 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        List<String> sanitizedOrigins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isEmpty())
-                .collect(Collectors.toList());
-        configuration.setAllowedOrigins(sanitizedOrigins);
+        List<String> sanitizedOrigins = Arrays.stream((allowedOrigins == null ? "" : allowedOrigins).split(","))
+            .map(String::trim)
+            .map(origin -> origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin)
+            .filter(origin -> !origin.isEmpty())
+            .collect(Collectors.toList());
+
+        // Safe defaults prevent production lockout when env var is missing/malformed.
+        if (sanitizedOrigins.isEmpty()) {
+            sanitizedOrigins = List.of(
+                "https://pranjal-boutique.vercel.app",
+                "https://*.vercel.app",
+                "http://localhost:3000",
+                "http://localhost:5173");
+        }
+
+        configuration.setAllowedOriginPatterns(sanitizedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Set-Cookie"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
