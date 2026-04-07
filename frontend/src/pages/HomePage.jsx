@@ -167,6 +167,16 @@ function buildMapEmbedUrl(googleMapsUrl, location) {
   return `https://www.google.com/maps?q=${fallbackQuery}&output=embed`;
 }
 
+function toArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return [];
+  }
+  return [value];
+}
+
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -237,10 +247,11 @@ export default function HomePage() {
 
     async function loadGallery() {
       try {
-        const services = await getServices();
+        const servicesData = await getServices();
         if (!mounted) {
           return;
         }
+        const services = toArray(servicesData);
         const mapped = services
           .filter((service) => service.imageUrl)
           .map((service) => ({
@@ -274,10 +285,11 @@ export default function HomePage() {
         }
 
         setSiteSettings({
-          contactNumbers:
+          contactNumbers: toArray(
             data?.contactNumbers?.length > 0
               ? data.contactNumbers
-              : [data?.contactNumber || "+91 98765 43210"],
+              : data?.contactNumber || "+91 98765 43210",
+          ),
           location: data?.location || "Pune, Maharashtra, India",
           googleMapsUrl: data?.googleMapsUrl || "",
         });
@@ -311,7 +323,7 @@ export default function HomePage() {
         if (!mounted) {
           return;
         }
-        setReviews(reviewData);
+        setReviews(toArray(reviewData));
         setReviewAnalytics(analyticsData);
       } catch {
         if (!mounted) {
@@ -463,7 +475,7 @@ export default function HomePage() {
         getReviews(),
         getReviewAnalytics(),
       ]);
-      setReviews(reviewData);
+      setReviews(toArray(reviewData));
       setReviewAnalytics(analyticsData);
       setReviewForm({ reviewerName: "", message: "", stars: 5 });
       setReviewStatus("Thank you. Your review is now visible.");
