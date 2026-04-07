@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import StatusToast from "../components/StatusToast";
 import { createInquiry, getSiteSettings } from "../api/serviceApi";
 
 const initialForm = {
@@ -155,6 +156,7 @@ export default function ContactPage() {
 
   return (
     <PageTransition>
+      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-6">
           <button
@@ -311,11 +313,6 @@ export default function ContactPage() {
           >
             Send Inquiry
           </button>
-          {status && (
-            <p className="text-sm text-[color:var(--text-secondary)]">
-              {status}
-            </p>
-          )}
         </form>
       </section>
     </PageTransition>

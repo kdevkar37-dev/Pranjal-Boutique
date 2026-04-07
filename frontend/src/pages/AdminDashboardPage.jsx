@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import StatusToast from "../components/StatusToast";
 import { getImageUrl } from "../utils/imageUrl";
 import {
   deleteInquiry,
@@ -342,6 +343,7 @@ export default function AdminDashboardPage() {
 
   return (
     <PageTransition>
+      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="space-y-8">
         {/* Header with Notification Badges */}
         <div className="flex items-center justify-between">
@@ -957,14 +959,6 @@ export default function AdminDashboardPage() {
           </div>
         </section>
 
-        {/* Status Message */}
-        {status && (
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-            <p className="text-sm text-[color:var(--text-secondary)]">
-              {status}
-            </p>
-          </div>
-        )}
       </section>
     </PageTransition>
   );

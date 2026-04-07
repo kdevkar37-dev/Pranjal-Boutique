@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
+import StatusToast from "../components/StatusToast";
 import { getImageUrl } from "../utils/imageUrl";
 import {
   createRentalProduct,
@@ -170,6 +171,7 @@ export default function AdminRentalProductsPage() {
 
   return (
     <PageTransition>
+      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="space-y-8">
         <div className="flex items-center justify-between">
           <div>
@@ -414,13 +416,6 @@ export default function AdminRentalProductsPage() {
           )}
         </section>
 
-        {status && (
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-            <p className="text-sm text-[color:var(--text-secondary)]">
-              {status}
-            </p>
-          </div>
-        )}
       </section>
     </PageTransition>
   );

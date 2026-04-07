@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { login, register } from "../api/authApi";
 import { useAppContext } from "../hooks/useAppContext";
 import PageTransition from "../components/PageTransition";
+import StatusToast from "../components/StatusToast";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ export default function LoginPage() {
 
   return (
     <PageTransition>
+      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="mx-auto max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--card)] p-6">
         <h2 className="font-heading text-4xl">
           {mode === "login" ? "Welcome Back" : "Create Account"}
@@ -87,11 +89,6 @@ export default function LoginPage() {
               : "Already registered? Login"}
           </button>
         </form>
-        {status && (
-          <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
-            {status}
-          </p>
-        )}
       </section>
     </PageTransition>
   );

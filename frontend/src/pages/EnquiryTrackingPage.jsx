@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import PageTransition from "../components/PageTransition";
+import StatusToast from "../components/StatusToast";
 import { getInquiries } from "../api/serviceApi";
 
 const statusConfig = {
@@ -47,6 +48,7 @@ export default function EnquiryTrackingPage() {
 
   return (
     <PageTransition>
+      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="space-y-8">
         {/* Header */}
         <div>
@@ -66,9 +68,6 @@ export default function EnquiryTrackingPage() {
             onChange={(e) => handleSearch(e.target.value)}
             className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-[color:var(--text-primary)] placeholder-[color:var(--text-secondary)]"
           />
-          {status && (
-            <p className={`mt-3 text-sm ${status.includes("❌") ? "text-red-400" : "text-green-400"}`}>{status}</p>
-          )}
         </div>
 
         {/* Loading State */}
