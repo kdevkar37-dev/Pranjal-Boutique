@@ -1,49 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTransition from "../components/PageTransition";
-import StatusToast from "../components/StatusToast";
 import { getImageUrl } from "../utils/imageUrl";
 import {
-  createService,
-  deleteAdminImage,
   deleteInquiry,
-  deleteService,
   getInquiries,
   getReviewAnalytics,
   getReviews,
   getServices,
   getServiceCategoryCounts,
   getSiteSettings,
-  updateService,
   updateInquiryStatus,
   deleteReview,
-  uploadAdminImage,
   updateSiteSettings,
 } from "../api/serviceApi";
 
-function extractApiError(err, fallbackMessage) {
-  const details = err?.response?.data?.details;
-  if (details && typeof details === "object") {
-    const merged = Object.values(details).filter(Boolean).join(", ");
-    if (merged) {
-      return merged;
-    }
-  }
-
-  return (
-    err?.response?.data?.error ||
-    err?.message ||
-    fallbackMessage
-  );
-}
-
-function normalizeCategoryInput(value) {
-  return (value || "")
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_")
-    .replace(/[^A-Z_]/g, "");
-}
+const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const initialService = {
   title: "",
@@ -128,15 +100,31 @@ export default function AdminDashboardPage() {
     event.preventDefault();
     setStatus("Uploading service...");
     try {
-      const categoryValue = normalizeCategoryInput(selectedCategory);
+      const categoryValue = selectedCategory.trim();
       if (!categoryValue) {
         throw new Error("Category is required");
       }
 
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
       let imageUrl = serviceForm.imageUrl;
 
       if (serviceForm.imageFile) {
-        const uploadData = await uploadAdminImage(serviceForm.imageFile);
+        const imageFormData = new FormData();
+        imageFormData.append("file", serviceForm.imageFile);
+
+        const uploadRes = await fetch(`${API_URL}/api/admin/images/upload`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: imageFormData,
+        });
+
+        if (!uploadRes.ok) {
+          const errorData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errorData.error || "Image upload failed");
+        }
+        const uploadData = await uploadRes.json();
         imageUrl = uploadData.imageUrl;
       }
 
@@ -144,23 +132,26 @@ export default function AdminDashboardPage() {
         throw new Error("Image URL is required");
       }
 
-      const payload = {
-        title: serviceForm.title,
-        category: categoryValue,
-        description: serviceForm.description,
-        imageUrl,
-      };
+      const serviceUrl = editingService
+        ? `${API_URL}/api/admin/services/${editingService.id}`
+        : `${API_URL}/api/admin/services`;
 
-      if (editingService) {
-        await updateService(editingService.id, payload);
+      const method = editingService ? "PUT" : "POST";
+      const serviceRes = await fetch(serviceUrl, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: serviceForm.title,
+          category: categoryValue,
+          description: serviceForm.description,
+          imageUrl: imageUrl,
+        }),
+      });
 
-        if (serviceForm.imageFile && editingService.imageUrl) {
-          // Ignore old image cleanup failures so service updates remain successful.
-          await deleteAdminImage(editingService.imageUrl).catch(() => {});
-        }
-      } else {
-        await createService(payload);
-      }
+      if (!serviceRes.ok) throw new Error("Service save failed");
 
       await refresh();
       setServiceForm(initialService);
@@ -169,7 +160,7 @@ export default function AdminDashboardPage() {
       setPreviewImage(null);
       setStatus(editingService ? "✅ Service updated!" : "✅ Service created!");
     } catch (err) {
-      setStatus(`❌ Error: ${extractApiError(err, "Service save failed")}`);
+      setStatus(`❌ Error: ${err.message}`);
     }
   }
 
@@ -207,11 +198,18 @@ export default function AdminDashboardPage() {
   async function handleDeleteService(id) {
     if (!window.confirm("Delete this service?")) return;
     try {
-      await deleteService(id);
+      const token =
+        sessionStorage.getItem("boutique-token") ||
+        localStorage.getItem("boutique-token");
+      const res = await fetch(`${API_URL}/api/admin/services/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Delete failed");
       await refresh();
       setStatus("✅ Service deleted");
     } catch (err) {
-      setStatus(`❌ Error: ${extractApiError(err, "Delete failed")}`);
+      setStatus(`❌ Error: ${err.message}`);
     }
   }
 
@@ -325,7 +323,6 @@ export default function AdminDashboardPage() {
 
   return (
     <PageTransition>
-      <StatusToast message={status} onClose={() => setStatus("")} />
       <section className="space-y-8">
         {/* Header with Notification Badges */}
         <div className="flex items-center justify-between">
@@ -941,6 +938,14 @@ export default function AdminDashboardPage() {
           </div>
         </section>
 
+        {/* Status Message */}
+        {status && (
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+            <p className="text-sm text-[color:var(--text-secondary)]">
+              {status}
+            </p>
+          </div>
+        )}
       </section>
     </PageTransition>
   );

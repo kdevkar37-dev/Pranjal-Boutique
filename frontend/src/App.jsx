@@ -1,7 +1,6 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { logout as logoutApi } from "./api/authApi";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Header from "./components/Header";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SplashScreen from "./components/SplashScreen";
@@ -21,35 +20,7 @@ const AdminRentalProductsPage = lazy(
 
 export default function App() {
   const location = useLocation();
-  const navigate = useNavigate();
   const [showSplash, setShowSplash] = useState(true);
-  const hasResetInitialVisit = useRef(false);
-
-  useEffect(() => {
-    if (hasResetInitialVisit.current) {
-      return;
-    }
-
-    hasResetInitialVisit.current = true;
-    const isOAuthCallback = location.pathname.startsWith("/oauth2/success");
-
-    if (isOAuthCallback) {
-      return;
-    }
-
-    sessionStorage.removeItem("boutique-token");
-    sessionStorage.removeItem("boutique-user");
-    localStorage.removeItem("boutique-token");
-    localStorage.removeItem("boutique-user");
-    window.dispatchEvent(new Event("auth:logout"));
-
-    // Best-effort server-side logout so refresh-token based auto-login is also reset.
-    logoutApi().catch(() => {});
-
-    if (location.pathname !== "/") {
-      navigate("/", { replace: true });
-    }
-  }, [location.pathname, navigate]);
 
   useEffect(() => {
     const splashTimer = window.setTimeout(() => {

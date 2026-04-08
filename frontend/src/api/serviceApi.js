@@ -44,20 +44,6 @@ export async function createService(payload) {
   return data;
 }
 
-export async function uploadAdminImage(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  const { data } = await api.post("/admin/images/upload", formData);
-  return data;
-}
-
-export async function deleteAdminImage(imageUrl) {
-  const { data } = await api.delete("/admin/images", {
-    params: { imageUrl },
-  });
-  return data;
-}
-
 export async function updateService(id, payload) {
   const { data } = await api.put(`/admin/services/${id}`, payload);
   return data;
