@@ -11,11 +11,9 @@ export function AppProvider({ children }) {
   const [theme, setTheme] = useState(
     localStorage.getItem(THEME_KEY) || "royal",
   );
-  const [token, setToken] = useState(
-    sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || "",
-  );
+  const [token, setToken] = useState(sessionStorage.getItem(TOKEN_KEY) || "");
   const [user, setUser] = useState(() => {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = sessionStorage.getItem(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   });
   const [language, setLanguage] = useState(
@@ -26,6 +24,12 @@ export function AppProvider({ children }) {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
+
+  useEffect(() => {
+    // Remove legacy persisted auth data from older builds.
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -49,8 +53,9 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (user) {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     } else {
+      sessionStorage.removeItem(USER_KEY);
       localStorage.removeItem(USER_KEY);
     }
   }, [user]);

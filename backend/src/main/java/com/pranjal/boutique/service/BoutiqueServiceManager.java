@@ -110,7 +110,16 @@ public class BoutiqueServiceManager {
     }
 
     private String normalizeCategory(String category) {
-        return category == null ? null : category.trim();
+        if (category == null) {
+            return null;
+        }
+
+        String normalized = category.trim()
+                .toUpperCase()
+                .replaceAll("[\\s-]+", "_")
+                .replaceAll("[^A-Z0-9_]", "");
+
+        return normalized;
     }
 
     private static class CountAccumulator {

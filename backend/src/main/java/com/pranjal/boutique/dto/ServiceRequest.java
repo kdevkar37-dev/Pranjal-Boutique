@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 
 public record ServiceRequest(
         @NotBlank @Size(min = 2, max = 120) String title,
-        @NotBlank @Pattern(regexp = "^[A-Z_]+$", message = "Category must be uppercase underscore format") @Size(min = 2, max = 40) String category,
-        @NotBlank @Size(min = 10, max = 3000) String description,
+        @NotBlank @Pattern(regexp = "^[A-Za-z0-9_\\s-]+$", message = "Category can contain letters, numbers, spaces, hyphen, underscore") @Size(min = 2, max = 40) String category,
+        @NotBlank @Size(min = 3, max = 3000) String description,
         @NotBlank @Size(max = 500) String imageUrl) {
 }
