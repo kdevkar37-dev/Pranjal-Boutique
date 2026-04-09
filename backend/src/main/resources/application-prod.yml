@@ -3,6 +3,10 @@ server:
   servlet:
     context-path: /
   shutdown: graceful
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,application/javascript
 
 spring:
   application:
